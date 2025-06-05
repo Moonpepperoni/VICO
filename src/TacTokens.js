@@ -2,7 +2,7 @@ const IDENT_START = /[A-Za-z]/;
 const IDENT_PART = /[A-Za-z0-9]/;
 const NUM_LIT = /[0-9]/;
 const OPERATOR = /[+|*|-|/|<|=|>|!]/
-const VALID_TOKENS = /(?<goto>goto)|(?<if>if)|(?<ident>[A-Za-z][A-Za-z0-9]*)|(?<numlit>[0-9]+)|(?<dsymbol><=|>=|==|!=)|(?<ssymbol>[=+*-<>:\\])|(?<eoi>\n|$\r\n)|(?<space> |\t)/gm
+const VALID_TOKENS = /(?<goto>goto)|(?<if>if)|(?<ident>[A-Za-z][A-Za-z0-9]*)|(?<numlit>[0-9]+)|(?<dsymbol><=|>=|==|!=)|(?<ssymbol>[=+*-<>:\\])|(?<eoi>\r\n|\n|$)|(?<space> |\t)/g
 
 class Token {
     constructor(type, val, line, col) {

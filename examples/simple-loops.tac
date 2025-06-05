@@ -1,0 +1,16 @@
+i = 1
+OUTERLOOP: j = 1
+LOOP1: t1 = 10 * i
+t2 = t1 + j
+t3 = 8 * t2
+t4 = t3 - 88
+j = j + 1
+if j <= 10 goto LOOP1
+i = i + 1
+if i <= 10 goto OUTERLOOP
+i = 1
+LOOP2: t5 = i - 1
+t6 = 88 * t5
+c = 1
+i = i + 1
+if i <= 10 goto LOOP2

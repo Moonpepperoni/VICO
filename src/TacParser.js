@@ -137,7 +137,7 @@ export default function parseTac(tokens) {
 
     while (tokenStack.length > 0) {
         let instructionTokens = [];
-        console.log('found an instruction')
+        console.log(`found an instruction: ${tokenStack.at(-1)}`)
         while (tokenStack.at(-1).type != 'eoi') {
             instructionTokens.push(tokenStack.pop());
         }

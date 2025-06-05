@@ -64,7 +64,7 @@ export default function FileForm({ onRead }) {
     }
 
     return (
-        <div onDragLeave={onDragLeave} onDragOver={onDragOver} onDragEnter={onDragEnter} onDrop={onDrop} style={{ borderStyle: "dotted", borderWidth: "5px 5px 5px 5px", borderColor: (visualState === 'default' ? "black" : "green"), width: "100%", height: "100%" }}>
+        <div onDragLeave={onDragLeave} onDragOver={onDragOver} onDragEnter={onDragEnter} onDrop={onDrop} style={{ borderStyle: "dotted", borderWidth: "5px 5px 5px 5px", borderColor: (visualState === 'default' ? "black" : "green"), width: "100%", height: "100%", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
             {
                 (visualState === 'default') ?
                     <><p>Ziehe eine Datei hierhin oder drücke den Button</p>
