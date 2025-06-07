@@ -10,13 +10,16 @@ import FlowAnalyser from './flow-analysis';
 import convertToVisibleGraph from './FlowGraph';
 
 function App() {
-    const [textData, setTextData] = useState(null);
+    const [tac, setTac] = useState(null);
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
     const [algStates, setAlgStates] = useState([]);
     const [algStateIndex, setAlgStateIndex] = useState(null);
-    const tac = textData ? parseTac(tokeniseRegex(textData)) : null;
     const analyser = useRef(new FlowAnalyser());
+
+    const readTac = (fileData) => {
+        setTac(parseTac(tokeniseRegex(fileData)));
+    }
 
     if (tac && nodes.length == 0) {
         let states = analyser.current.do(tac);
@@ -44,7 +47,7 @@ function App() {
         <div style={{ height: '100vh', width: '100vw', display: "flex", flexDirection: 'row' }}>
             <div style={{ flex: "1 0 0", display: 'flex', flexDirection: 'column' }}>
                 <div style={{ height: '20%' }}>
-                    <FileForm onRead={setTextData} />
+                    <FileForm onRead={readTac} />
                 </div>
                 <button onClick={onStepClick}>Step</button>
                 {tac?.map(quadruple => <p style={{ textAlign: "left" }}><it>{quadruple.label}</it> | {quadruple.toString()}</p>)}
