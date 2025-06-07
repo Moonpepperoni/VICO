@@ -1,3 +1,5 @@
+import { produce } from "immer";
+
 export default class FlowAnalyser {
     #verteces;
     #edges;
@@ -28,18 +30,25 @@ export default class FlowAnalyser {
     do(tac) {
         this.fillGraph(tac);
         this.snapshot();
-        for (let v of this.#verteces) {
+        for (let i = 0; i < this.#verteces.length; i++) {
+            let v = this.#verteces[i];
             let uses = getUsesForInstruction(v.instruction);
             let defs = getDefsForInstruction(v.instruction);
-            uses.forEach(u => v.data.use.push(u));
-            defs.forEach(u => v.data.def.push(u));
+            this.#verteces = produce(this.#verteces, (old) => {
+                uses.forEach(u => {
+                    old[i].data.use.push(u);
+                });
+                defs.forEach(d => {
+                    old[i].data.def.push(d);
+                });
+            });
             this.snapshot();
         }
         return this.#states;
     }
 
     snapshot() {
-        this.#states.push({ verteces: JSON.parse(JSON.stringify(this.#verteces)), edges: JSON.parse(JSON.stringify(this.#edges)) });
+        this.#states.push({ verteces: this.#verteces, edges: this.#edges });
     }
 }
 
