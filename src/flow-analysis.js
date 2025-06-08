@@ -13,7 +13,7 @@ export default class FlowAnalyser {
 
     fillGraph(tac) {
         for (let instruction of tac) {
-            this.#verteces.push({ instruction, data: { use: new Set(), def: new Set(), liveIn: new Set(), liveOut: new Set() } });
+            this.#verteces.push({ instruction, data: { use: new Set(), def: new Set(), inSet: new Set(), outSet: new Set() } });
             switch (instruction.type) {
                 case 'jmp':
                     this.#edges.push({ src: instruction.label, end: instruction.result.val });
@@ -22,11 +22,13 @@ export default class FlowAnalyser {
                     this.#edges.push({ src: instruction.label, end: instruction.result.val })
                 // eslint-disable-next-line no-fallthrough
                 default:
+                    // TODO: remove jump for last instruction
                     this.#edges.push({ src: instruction.label, end: instruction.label + 1 })
             }
         }
     }
 
+    // i want to die XO
     do(tac) {
         this.fillGraph(tac);
         this.snapshot();
@@ -44,12 +46,51 @@ export default class FlowAnalyser {
             });
             this.snapshot();
         }
+
+        let changed = true;
+        while (changed) {
+            console.log(0);
+            changed = false;
+            for (let i = this.#verteces.length - 1; i >= 0; i--) {
+                console.log('looking at vertex ' + i);
+                let v = this.#verteces[i];
+                let oldOut = v.data.outSet;
+                let oldIn = v.data.inSet;
+                console.log(oldIn);
+                this.#verteces = produce(this.#verteces, (old) => {
+                    console.log('1');
+                    console.log('2');
+                    let successors = getSuccessors(this.#edges, old[i]);
+                    for (let succ of successors) {
+                        // careful last will still have jump to next instruction but there is none
+                        let inSetSucc = old[succ]?.data.inSet;
+                        inSetSucc?.forEach(elem => old[i].data.outSet.add(elem));
+                    }
+                    let diff = new Set([...old[i].data.outSet].filter(x => !old[i].data.def.has(x)));
+                    let union = new Set([...diff, ...old[i].data.use]);
+                    union.forEach(e => old[i].data.inSet.add(e));
+                });
+                v = this.#verteces[i];
+                console.log(5);
+                if (v.data.outSet.size != oldOut.size || v.data.inSet.size != oldIn.size) changed = true;
+                console.log(6);
+            }
+            this.snapshot();
+            console.log(7);
+        }
         return this.#states;
     }
 
     snapshot() {
         this.#states.push({ verteces: this.#verteces, edges: this.#edges });
     }
+}
+
+function getSuccessors(edges, v) {
+    let filtered = edges.filter(({ src }) => {
+        return src === v.instruction.label;
+    });
+    return filtered.map(({ end }) => end);
 }
 
 function getUsesForInstruction(instr) {

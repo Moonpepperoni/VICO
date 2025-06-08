@@ -40,7 +40,10 @@ function App() {
 
     const onStepForward = () => {
         let newIndex = algStateIndex + 1;
-        if (newIndex >= algStates.length) return;
+        if (newIndex >= algStates.length) {
+            console.log("no more stuff");
+            return;
+        }
         setAlgStateIndex(newIndex);
         let [nodes, edges] = convertToVisibleGraph({ verteces: algStates[newIndex].verteces, edges: algStates[newIndex].edges });
         setNodes(nodes);

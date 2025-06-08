@@ -11,7 +11,7 @@ export default function convertToVisibleGraph({ verteces, edges }) {
             type: "instruction",
             position: { x: idCounter * 15, y: idCounter * 100 },
             id: `${instruction.label}`,
-            data: { instruction: instruction, label: `use: ${[...data.use]} def: ${[...data.def]}` }
+            data: { instruction: instruction, label: `use: ${[...data.use]} def: ${[...data.def]} in: ${[...data.inSet]} out: ${[...data.outSet]}` }
         });
         idCounter++;
     });

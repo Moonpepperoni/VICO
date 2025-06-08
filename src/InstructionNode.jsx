@@ -1,8 +1,6 @@
 import { Handle, Position } from "@xyflow/react";
 
 function instructionToString(instr) {
-
-    console.log("calling to string");
     switch (instr.type) {
         case 'assign': {
             let start = `${instr.result.val} = `;
