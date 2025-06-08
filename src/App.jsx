@@ -1,6 +1,7 @@
 import './App.css';
 import FileForm from './FileForm';
 import { useState, useCallback, useRef } from "react";
+import { enableMapSet } from 'immer';
 import tokeniseRegex from './TacTokens';
 import parseTac from './TacParser';
 import Flow from './Flow';
@@ -8,6 +9,8 @@ import CFG from './cfg';
 import { applyNodeChanges } from '@xyflow/react';
 import FlowAnalyser from './flow-analysis';
 import convertToVisibleGraph from './FlowGraph';
+
+enableMapSet();
 
 function App() {
     const [tac, setTac] = useState(null);

@@ -13,7 +13,7 @@ export default class FlowAnalyser {
 
     fillGraph(tac) {
         for (let instruction of tac) {
-            this.#verteces.push({ instruction, data: { use: [], def: [], liveIn: [], liveOut: [] } });
+            this.#verteces.push({ instruction, data: { use: new Set(), def: new Set(), liveIn: new Set(), liveOut: new Set() } });
             switch (instruction.type) {
                 case 'jmp':
                     this.#edges.push({ src: instruction.label, end: instruction.result.val });
@@ -36,10 +36,10 @@ export default class FlowAnalyser {
             let defs = getDefsForInstruction(v.instruction);
             this.#verteces = produce(this.#verteces, (old) => {
                 uses.forEach(u => {
-                    old[i].data.use.push(u);
+                    old[i].data.use.add(u);
                 });
                 defs.forEach(d => {
-                    old[i].data.def.push(d);
+                    old[i].data.def.add(d);
                 });
             });
             this.snapshot();
