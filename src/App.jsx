@@ -35,8 +35,18 @@ function App() {
         [],
     );
 
-    const onStepClick = () => {
+    const onStepForward = () => {
         let newIndex = algStateIndex + 1;
+        if (newIndex >= algStates.length) return;
+        setAlgStateIndex(newIndex);
+        let [nodes, edges] = convertToVisibleGraph({ verteces: algStates[newIndex].verteces, edges: algStates[newIndex].edges });
+        setNodes(nodes);
+        setEdges(edges);
+    }
+
+    const onStepBackward = () => {
+        let newIndex = algStateIndex - 1;
+        if (newIndex < 0) return;
         setAlgStateIndex(newIndex);
         let [nodes, edges] = convertToVisibleGraph({ verteces: algStates[newIndex].verteces, edges: algStates[newIndex].edges });
         setNodes(nodes);
@@ -49,7 +59,8 @@ function App() {
                 <div style={{ height: '20%' }}>
                     <FileForm onRead={readTac} />
                 </div>
-                <button onClick={onStepClick}>Step</button>
+                <button onClick={onStepForward}>Step forward</button>
+                <button onClick={onStepBackward}>Step backward</button>
                 {tac?.map(quadruple => <p style={{ textAlign: "left" }}><it>{quadruple.label}</it> | {quadruple.toString()}</p>)}
             </div>
             <div style={{ width: "70%", flex: "2 0 0" }}>
