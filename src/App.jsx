@@ -24,7 +24,15 @@ function App() {
         setTac(parseTac(tokeniseRegex(fileData)));
     }
 
-    if (tac && nodes.length == 0) {
+    const onNodesChange = useCallback(
+        (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+        [],
+    );
+
+    const doAnalysis = () => {
+        if (!tac) {
+            return;
+        }
         let states = analyser.current.do(tac);
         setAlgStates(states);
         setAlgStateIndex(0);
@@ -32,11 +40,6 @@ function App() {
         setNodes(nodes);
         setEdges(edges);
     }
-
-    const onNodesChange = useCallback(
-        (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-        [],
-    );
 
     const onStepForward = () => {
         let newIndex = algStateIndex + 1;
@@ -65,9 +68,10 @@ function App() {
                 <div style={{ height: '20%' }}>
                     <FileForm onRead={readTac} />
                 </div>
+                <button onClick={doAnalysis}>Start analysis</button>
                 <button onClick={onStepForward}>Step forward</button>
                 <button onClick={onStepBackward}>Step backward</button>
-                {tac?.map(quadruple => <p style={{ textAlign: "left" }}><it>{quadruple.label}</it> | {quadruple.toString()}</p>)}
+                {tac?.map(quadruple => <p style={{ textAlign: "left" }}><em>{quadruple.label}</em> | {quadruple.toString()}</p>)}
             </div>
             <div style={{ width: "70%", flex: "2 0 0" }}>
                 <Flow nodes={nodes} edges={edges} onNodesChange={onNodesChange}></Flow>
