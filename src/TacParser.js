@@ -130,7 +130,8 @@ function parseAssignRest(rest) {
 }
 
 
-
+// TODO: probably refactor quadruples to explicit types with more safety
+// TODO: convert jump targets to id and completely remove jump positions
 export default function parseTac(tokens) {
     let tokenStack = tokens.reverse();
     let quadruples = [];
