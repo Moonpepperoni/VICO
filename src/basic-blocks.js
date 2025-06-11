@@ -1,11 +1,11 @@
 export default function convertToBasicBlocks(tac) {
     let [first, ...restTac] = tac;
-    let leaderIds = new Set([first.label]);
+    let leaderIds = new Set([first.id]);
     for (let instr of restTac) {
         if (instr.type === 'jmp' || instr.type === 'cjmp') {
             let target = instr.result.val;
             leaderIds.add(target);
-            if (instr !== tac.at(-1)) leaderIds.add(instr.label + 1);
+            if (instr !== tac.at(-1)) leaderIds.add(instr.id + 1);
         }
     }
     let leaders = [...leaderIds].sort();
@@ -24,7 +24,7 @@ export default function convertToBasicBlocks(tac) {
         if (lastInstr === 'cjmp' || lastInstr === 'jmp') {
             let target = lastInstr.result.val;
             // must exist because all instructions are in exactly one block
-            let targetBlock = blocks.filter(b => b.instructions.map(i => i.label === target))[0];
+            let targetBlock = blocks.filter(b => b.instructions.map(i => i.id === target))[0];
             block.addTarget(targetBlock.blockId);
         }
         if (lastInstr !== 'jmp') {

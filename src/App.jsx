@@ -71,7 +71,7 @@ function App() {
                 <button onClick={doAnalysis}>Start analysis</button>
                 <button onClick={onStepForward}>Step forward</button>
                 <button onClick={onStepBackward}>Step backward</button>
-                {tac?.map(quadruple => <p style={{ textAlign: "left" }}><em>{quadruple.label}</em> | {quadruple.toString()}</p>)}
+                {tac?.map(quadruple => <p style={{ textAlign: "left" }}><em>{quadruple.id}</em> | {quadruple.toString()}</p>)}
             </div>
             <div style={{ width: "70%", flex: "2 0 0" }}>
                 <Flow nodes={nodes} edges={edges} onNodesChange={onNodesChange}></Flow>

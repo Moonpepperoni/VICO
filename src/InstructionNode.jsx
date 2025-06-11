@@ -26,7 +26,7 @@ export default function InstructionNode({ data }) {
         <div>
             <Handle type="target" position={Position.Top} id='prev' />
             <Handle type="target" position={Position.Top} id='backin' style={{ left: 0 }} />
-            <p>{`${data.instruction.label}| ${instructionToString(data.instruction)}, ${data.label}`}</p>
+            <p>{`${data.instruction.id}| ${instructionToString(data.instruction)}, ${data.label}`}</p>
             <Handle type="source" position={Position.Bottom} id='backout' style={{ left: 0 }} />
             <Handle type="source" position={Position.Bottom} id='next' />
 

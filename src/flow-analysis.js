@@ -16,14 +16,14 @@ export default class FlowAnalyser {
             this.#verteces.push({ instruction, data: { use: new Set(), def: new Set(), inSet: new Set(), outSet: new Set() } });
             switch (instruction.type) {
                 case 'jmp':
-                    this.#edges.push({ src: instruction.label, end: instruction.result.val });
+                    this.#edges.push({ src: instruction.id, end: instruction.result.val });
                     break;
                 case 'cjmp':
-                    this.#edges.push({ src: instruction.label, end: instruction.result.val })
+                    this.#edges.push({ src: instruction.id, end: instruction.result.val })
                 // eslint-disable-next-line no-fallthrough
                 default:
                     // TODO: remove jump for last instruction
-                    this.#edges.push({ src: instruction.label, end: instruction.label + 1 })
+                    this.#edges.push({ src: instruction.id, end: instruction.id + 1 })
             }
         }
     }
@@ -88,7 +88,7 @@ export default class FlowAnalyser {
 
 function getSuccessors(edges, v) {
     let filtered = edges.filter(({ src }) => {
-        return src === v.instruction.label;
+        return src === v.instruction.id;
     });
     return filtered.map(({ end }) => end);
 }

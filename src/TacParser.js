@@ -4,19 +4,20 @@ class Quadruple {
     arg2;
     result;
     type;
+    id;
     label;
 
-    constructor(op, arg1, arg2, result, type, label) {
+    constructor(op, arg1, arg2, result, type, id, label) {
         this.op = op;
         this.arg1 = arg1;
         this.arg2 = arg2;
         this.result = result;
         this.type = type;
+        this.id = id;
         this.label = label;
     }
 
-    static fromParts(tokens) {
-        console.log('assembling from parts');
+    static fromParts(id, tokens) {
         let [first, second, ...rest] = tokens;
         let result;
         let arg1;
@@ -26,7 +27,7 @@ class Quadruple {
         let label;
 
         if (first.type === 'ident' && second.type === 'ssymbol' && second.val === ':') {
-            label = first;
+            label = first.val;
             [first, second, ...rest] = rest;
         }
 
@@ -47,7 +48,7 @@ class Quadruple {
                 type = 'cjmp';
                 break;
         }
-        return new Quadruple(op, arg1, arg2, result, type, label);
+        return new Quadruple(op, arg1, arg2, result, type, id, label);
     }
 
     toString() {
@@ -109,7 +110,6 @@ function parseAssignRest(rest) {
     let op;
 
     for (let token of rest) {
-        console.log(`parsing token in assign ${token.toString()}`);
         switch (token.type) {
             case 'ident':
             case 'numlit':
@@ -125,16 +125,14 @@ function parseAssignRest(rest) {
                 break;
         }
     }
-    console.log(`before return ${arg1}, ${arg2}, ${op}`);
     return { arg1, arg2, op };
 }
 
 
-// TODO: probably refactor quadruples to explicit types with more safety
-// TODO: convert jump targets to id and completely remove jump positions
 export default function parseTac(tokens) {
     let tokenStack = tokens.reverse();
     let quadruples = [];
+    let id = 0;
 
     while (tokenStack.length > 0) {
         let instructionTokens = [];
@@ -142,31 +140,25 @@ export default function parseTac(tokens) {
         while (tokenStack.at(-1).type != 'eoi') {
             instructionTokens.push(tokenStack.pop());
         }
-        quadruples.push(Quadruple.fromParts(instructionTokens));
+        quadruples.push(Quadruple.fromParts(id, instructionTokens));
         // remove end of instruction
         tokenStack.pop();
+        id++;
     }
 
     let symbolTable = new Map();
     for (let [index, instruction] of quadruples.entries()) {
         if (instruction.label !== undefined) {
-            symbolTable.set(instruction.label.val, index);
-            console.log(`added label ${instruction.label.val} with index ${index}`)
+            symbolTable.set(instruction.label, index);
         }
     }
 
-    symbolTable.entries().forEach(([element, val]) => {
-        console.log(`${element}: ${val}`)
-    });
-
-    for (let [index, instruction] of quadruples.entries()) {
+    for (let instruction of quadruples) {
         if (instruction.type === 'jmp' || instruction.type === 'cjmp') {
             let target = instruction.result.val;
             let pos = symbolTable.get(target);
-            console.log(`pos for label ${target} is ${pos}`)
             instruction.result.val = pos;
         }
-        instruction.label = index;
     }
 
     return quadruples;
