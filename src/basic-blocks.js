@@ -1,21 +1,19 @@
-export default function convertToBasicBlocks(tac) {
-    let [first, ...restTac] = tac;
+export default function convertToBasicBlocks(singleBlocks) {
+    let [first, ...restBlocks] = singleBlocks;
     let leaderIds = new Set([first.id]);
-    for (let instr of restTac) {
-        if (instr.type === 'jmp' || instr.type === 'cjmp') {
-            let target = instr.result.val;
-            leaderIds.add(target);
-            if (instr !== tac.at(-1)) leaderIds.add(instr.id + 1);
-        }
+    for (let block of restBlocks) {
+        // must exist
+        let instr = block.instr[0];
+        instr.targets.forEach(t => leaderIds.add(t));
     }
     let leaders = [...leaderIds].sort();
     // push sentinal value for easier slicing
-    leaders.push(tac.length);
+    leaders.push(singleBlocks.length);
     let blocks = [];
     for (let i = 0; i < leaders.length - 1; i++) {
         let start = leaders[i];
         let end = leaders[i + 1];
-        let blockInstr = tac.slice(start, end);
+        let blockInstr = singleBlocks.slice(start, end).map(s => s.instructions);
         blocks.push(new BasicBlock(blockInstr, i));
     }
     for (let i = 0; i < blocks.length; i++) {

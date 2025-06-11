@@ -21,8 +21,7 @@ export default class FlowAnalyser {
         this.snapshot();
         for (let i = 0; i < this.#verteces.length; i++) {
             let v = this.#verteces[i];
-            let uses = getUsesForBlock(v.block);
-            let defs = getDefsForBlock(v.block);
+            let { uses, defs } = getUsesAndDefsForBlock(v.block);
             this.#verteces = produce(this.#verteces, (old) => {
                 uses.forEach(u => {
                     old[i].data.use.add(u);
@@ -71,48 +70,46 @@ export default class FlowAnalyser {
 
 
 
-function getUsesForBlock(block) {
-    let uses = [];
-    // TODO: introduce functionality for basic blocks
-    let instruction = block.instructions[0];
-    switch (instruction.type) {
-        case 'assign': {
-            let { type: type1, val: val1 } = instruction.arg1;
-            if (type1 === 'ident') {
-                uses.push(val1);
-            }
-            if (!instruction.arg2) {
+function getUsesAndDefsForBlock(block) {
+    let uses = new Set();
+    let defs = new Set();
+    
+    for (let instruction of block.instructions) {
+        // get uses
+        switch (instruction.type) {
+            case 'assign': {
+                let { type: type1, val: val1 } = instruction.arg1;
+                if (type1 === 'ident' && !defs.has(val1)) {
+                    uses.add(val1);
+                }
+                if (!instruction.arg2) {
+                    break;
+                }
+                let { type: type2, val: val2 } = instruction.arg2;
+                if (type2 === 'ident' && !defs.has(val1)) {
+                    uses.add(val2);
+                }
                 break;
             }
-            let { type: type2, val: val2 } = instruction.arg2;
-            if (type2 === 'ident') {
-                uses.push(val2);
+            case 'cjmp': {
+                let { type: type1, val: val1 } = instruction.arg1;
+                if (type1 === 'ident' && !defs.has(val1)) {
+                    uses.add(val1);
+                }
+                if (!instruction.arg2) {
+                    break;
+                }
+                let { type: type2, val: val2 } = instruction.arg2;
+                if (type2 === 'ident' && !defs.has(val1)) {
+                    uses.add(val2);
+                }
             }
-            break;
         }
-        case 'cjmp': {
-            let { type: type1, val: val1 } = instruction.arg1;
-            if (type1 === 'ident') {
-                uses.push(val1);
-            }
-            if (!instruction.arg2) {
-                break;
-            }
-            let { type: type2, val: val2 } = instruction.arg2;
-            if (type2 === 'ident') {
-                uses.push(val2);
-            }
+        if (instruction.type === 'assign' && !uses.has(instruction.result.val)) {
+            defs.add(instruction.result.val);
         }
     }
-    return uses;
-}
 
-function getDefsForBlock(block) {
-    // TODO: add functionality for basic blocks
-    let instruction = block.instructions[0];
-    if (instruction.type === 'assign') {
-        return [instruction.result.val];
-    }
-    return [];
+    return { uses, defs };
 }
 
