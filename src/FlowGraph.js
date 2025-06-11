@@ -1,24 +1,26 @@
 import { MarkerType } from "@xyflow/react";
 
-export default function convertToVisibleGraph({ verteces, edges }) {
+export default function convertToVisibleGraph({ verteces }) {
     let nodes = [];
     let displayEdges = [];
     let idCounter = 0;
 
-    verteces.forEach(({ instruction, data }) => {
+    verteces.forEach(({ block, data }) => {
         nodes.push({
-            instruction,
-            type: "instruction",
+            block,
+            type: "block",
             position: { x: idCounter * 15, y: idCounter * 100 },
-            id: `${instruction.id}`,
-            data: { instruction: instruction, label: `use: ${[...data.use]} def: ${[...data.def]} in: ${[...data.inSet]} out: ${[...data.outSet]}` }
+            id: `${block.id}`,
+            data: { block, label: `use: ${[...data.use]} def: ${[...data.def]} in: ${[...data.inSet]} out: ${[...data.outSet]}` }
         });
         idCounter++;
     });
 
-    edges.forEach(({ src, end }) => {
-        displayEdges.push(newEdge({ id: src, target: end }))
-    })
+    for (let v of verteces) {
+        v.block.targets.forEach(t => {
+            displayEdges.push(newEdge({ id: v.block.id, target: t }));
+        });
+    }
 
     return [nodes, displayEdges];
 }

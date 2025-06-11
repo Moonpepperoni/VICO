@@ -1,11 +1,11 @@
 import { ReactFlow, Controls, Background, MiniMap } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import InstructionNode from './InstructionNode';
+import BlockNode from './BlockNode';
 import EntryNode from './EntryNode';
 import EndNode from './EndNode';
 
 const nodeTypes = {
-    instruction: InstructionNode,
+    block: BlockNode,
     entry: EntryNode,
     end: EndNode,
 }

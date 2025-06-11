@@ -9,19 +9,20 @@ import CFG from './cfg';
 import { applyNodeChanges } from '@xyflow/react';
 import FlowAnalyser from './flow-analysis';
 import convertToVisibleGraph from './FlowGraph';
+import { SingleInstructionBlock } from './block';
 
 enableMapSet();
 
 function App() {
-    const [tac, setTac] = useState(null);
+    const [blocks, setBlocks] = useState(null);
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
     const [algStates, setAlgStates] = useState([]);
     const [algStateIndex, setAlgStateIndex] = useState(null);
     const analyser = useRef(new FlowAnalyser());
 
-    const readTac = (fileData) => {
-        setTac(parseTac(tokeniseRegex(fileData)));
+    const readBlocks = (fileData) => {
+        setBlocks(parseTac(tokeniseRegex(fileData)).map(SingleInstructionBlock.fromInstruction));
     }
 
     const onNodesChange = useCallback(
@@ -30,13 +31,13 @@ function App() {
     );
 
     const doAnalysis = () => {
-        if (!tac) {
+        if (!blocks) {
             return;
         }
-        let states = analyser.current.do(tac);
+        let states = analyser.current.do(blocks);
         setAlgStates(states);
         setAlgStateIndex(0);
-        let [nodes, edges] = convertToVisibleGraph({ verteces: states[0].verteces, edges: states[0].edges });
+        let [nodes, edges] = convertToVisibleGraph({ verteces: states[0].verteces });
         setNodes(nodes);
         setEdges(edges);
     }
@@ -66,12 +67,11 @@ function App() {
         <div style={{ height: '100vh', width: '100vw', display: "flex", flexDirection: 'row' }}>
             <div style={{ flex: "1 0 0", display: 'flex', flexDirection: 'column' }}>
                 <div style={{ height: '20%' }}>
-                    <FileForm onRead={readTac} />
+                    <FileForm onRead={readBlocks} />
                 </div>
                 <button onClick={doAnalysis}>Start analysis</button>
                 <button onClick={onStepForward}>Step forward</button>
                 <button onClick={onStepBackward}>Step backward</button>
-                {tac?.map(quadruple => <p style={{ textAlign: "left" }}><em>{quadruple.id}</em> | {quadruple.toString()}</p>)}
             </div>
             <div style={{ width: "70%", flex: "2 0 0" }}>
                 <Flow nodes={nodes} edges={edges} onNodesChange={onNodesChange}></Flow>

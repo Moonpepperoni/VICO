@@ -20,13 +20,14 @@ function instructionToString(instr) {
     }
 }
 
-export default function InstructionNode({ data }) {
+export default function BlockNode({ data }) {
 
     return (
         <div>
             <Handle type="target" position={Position.Top} id='prev' />
             <Handle type="target" position={Position.Top} id='backin' style={{ left: 0 }} />
-            <p>{`${data.instruction.id}| ${instructionToString(data.instruction)}, ${data.label}`}</p>
+            <p>ID: {data.block.id}, {data.label}</p>
+            {data.block.instructions.map(i => <p>{instructionToString(i)}</p>)}
             <Handle type="source" position={Position.Bottom} id='backout' style={{ left: 0 }} />
             <Handle type="source" position={Position.Bottom} id='next' />
 
