@@ -73,7 +73,7 @@ export default class FlowAnalyser {
 function getUsesAndDefsForBlock(block) {
     let uses = new Set();
     let defs = new Set();
-    
+
     for (let instruction of block.instructions) {
         // get uses
         switch (instruction.type) {
@@ -86,7 +86,7 @@ function getUsesAndDefsForBlock(block) {
                     break;
                 }
                 let { type: type2, val: val2 } = instruction.arg2;
-                if (type2 === 'ident' && !defs.has(val1)) {
+                if (type2 === 'ident' && !defs.has(val2)) {
                     uses.add(val2);
                 }
                 break;
@@ -100,7 +100,7 @@ function getUsesAndDefsForBlock(block) {
                     break;
                 }
                 let { type: type2, val: val2 } = instruction.arg2;
-                if (type2 === 'ident' && !defs.has(val1)) {
+                if (type2 === 'ident' && !defs.has(val2)) {
                     uses.add(val2);
                 }
             }
