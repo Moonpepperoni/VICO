@@ -25,6 +25,7 @@ export default function convertToVisibleGraph({ verteces }) {
     return [nodes, displayEdges];
 }
 
+// TODO: fix self recursive edges
 function newEdge({ id, target }) {
     return {
         id: `${id}-${target}`,
