@@ -5,11 +5,11 @@ import { enableMapSet } from 'immer';
 import tokeniseRegex from './TacTokens';
 import parseTac from './TacParser';
 import Flow from './Flow';
-import CFG from './cfg';
 import { applyNodeChanges } from '@xyflow/react';
 import FlowAnalyser from './flow-analysis';
 import convertToVisibleGraph from './FlowGraph';
 import { SingleInstructionBlock } from './block';
+import toBasicBlocks from './basic-blocks';
 
 enableMapSet();
 
@@ -63,12 +63,21 @@ function App() {
         setEdges(edges);
     }
 
+    const convertToBasicBlocks = () => {
+        setBlocks(toBasicBlocks(blocks));
+        setAlgStateIndex(null);
+        setAlgStates([]);
+        setEdges([]);
+        setNodes([]);
+    }
+
     return (
         <div style={{ height: '100vh', width: '100vw', display: "flex", flexDirection: 'row' }}>
             <div style={{ flex: "1 0 0", display: 'flex', flexDirection: 'column' }}>
                 <div style={{ height: '20%' }}>
                     <FileForm onRead={readBlocks} />
                 </div>
+                <button onClick={convertToBasicBlocks}>Convert to Basic Blocks</button>
                 <button onClick={doAnalysis}>Start analysis</button>
                 <button onClick={onStepForward}>Step forward</button>
                 <button onClick={onStepBackward}>Step backward</button>

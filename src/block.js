@@ -18,6 +18,10 @@ export class SingleInstructionBlock {
         return this.instruction.id;
     }
 
+    get next() {
+        return this.id + 1;
+    }
+
     get targets() {
         if (this.#targets !== undefined) {
             return this.#targets;
@@ -30,5 +34,12 @@ export class SingleInstructionBlock {
             this.#targets.push(this.id + 1);
         }
         return this.#targets;
+    }
+
+    get jmpTarget() {
+        if (this.instruction.type === 'cjmp' || this.instruction.type === 'jmp') {
+            return this.instruction.result.val;
+        }
+        return null;
     }
 }
