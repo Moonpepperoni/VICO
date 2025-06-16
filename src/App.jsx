@@ -19,7 +19,7 @@ function App() {
     const [edges, setEdges] = useState([]);
     const [algStates, setAlgStates] = useState([]);
     const [algStateIndex, setAlgStateIndex] = useState(null);
-    const analyser = useRef(new FlowAnalyser());
+    const analyser = useRef(null);
 
     const readBlocks = (fileData) => {
         setBlocks(parseTac(tokeniseRegex(fileData)).map(SingleInstructionBlock.fromInstruction));
@@ -34,6 +34,7 @@ function App() {
         if (!blocks) {
             return;
         }
+        analyser.current = new FlowAnalyser();
         let states = analyser.current.do(blocks);
         setAlgStates(states);
         setAlgStateIndex(0);
