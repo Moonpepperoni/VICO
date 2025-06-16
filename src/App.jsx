@@ -10,6 +10,7 @@ import FlowAnalyser from './flow-analysis';
 import convertToVisibleGraph from './FlowGraph';
 import { SingleInstructionBlock } from './block';
 import toBasicBlocks from './basic-blocks';
+import { getLayoutedElements } from './layout';
 
 enableMapSet();
 
@@ -72,6 +73,12 @@ function App() {
         setNodes([]);
     }
 
+    const onLayoutPressed = () => {
+        let { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, { direction: "TB" });
+        setNodes([...layoutedNodes]);
+        setEdges([...layoutedEdges]);
+    }
+
     return (
         <div style={{ height: '100vh', width: '100vw', display: "flex", flexDirection: 'row' }}>
             <div style={{ flex: "1 0 0", display: 'flex', flexDirection: 'column' }}>
@@ -82,6 +89,7 @@ function App() {
                 <button onClick={doAnalysis}>Start analysis</button>
                 <button onClick={onStepForward}>Step forward</button>
                 <button onClick={onStepBackward}>Step backward</button>
+                <button onClick={onLayoutPressed}>Layout</button>
             </div>
             <div style={{ width: "70%", flex: "2 0 0" }}>
                 <Flow nodes={nodes} edges={edges} onNodesChange={onNodesChange}></Flow>
