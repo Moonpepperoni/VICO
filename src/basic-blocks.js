@@ -9,7 +9,7 @@ export default function convertToBasicBlocks(singleBlocks) {
             }
         }
     }
-    let leaders = [...leaderIds].sort();
+    let leaders = [...leaderIds].sort((a, b) => a - b);
     // push sentinal value for easier slicing
     leaders.push(singleBlocks.length);
     let blocks = [];
@@ -17,6 +17,7 @@ export default function convertToBasicBlocks(singleBlocks) {
         let start = leaders[i];
         let end = leaders[i + 1];
         let blockInstr = singleBlocks.slice(start, end).flatMap(s => s.instructions);
+        if (blockInstr.length == 0) continue;
         blocks.push(new BasicBlock(blockInstr, i));
     }
     for (let i = 0; i < blocks.length; i++) {
