@@ -17,9 +17,9 @@ const edgeTypes = {
 function Flow({ nodes = [], edges = [], onNodesChange }) {
     return (
         <div style={{ height: '100%' }}>
-            <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView>
+            <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} edgeTypes={edgeTypes} nodesDraggable={false} fitView>
                 <Background />
-                <Controls />
+                <Controls showInteractive={false} />
                 <MiniMap></MiniMap>
             </ReactFlow>
         </div>
