@@ -20,7 +20,7 @@ function Flow({ nodes = [], edges = [], onNodesChange }) {
             <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} edgeTypes={edgeTypes} nodesDraggable={false} fitView>
                 <Background />
                 <Controls showInteractive={false} />
-                <MiniMap></MiniMap>
+                <MiniMap pannable={true}></MiniMap>
             </ReactFlow>
         </div>
     );
