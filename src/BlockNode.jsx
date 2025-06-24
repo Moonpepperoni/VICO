@@ -1,3 +1,5 @@
+import { Handle, Position } from "@xyflow/react";
+
 function instructionToString(instr) {
     switch (instr.type) {
         case 'assign': {
@@ -22,8 +24,11 @@ export default function BlockNode({ data }) {
 
     return (
         <div>
+            <Handle type="target" position={Position.Top} style={{ visibility: 'hidden' }} />
             <p>ID: {data.block.id}, {data.label}</p>
             {data.block.instructions.map(i => <p>{instructionToString(i)}</p>)}
+            <Handle type="source" position={Position.Bottom} style={{ visibility: 'hidden' }} />
+
         </div>
     );
 

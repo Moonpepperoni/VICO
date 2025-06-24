@@ -42,7 +42,5 @@ function newEdge({ id, target }) {
             strokeWidth: 2,
             stroke: '#FF0072',
         },
-        sourceHandle: 'next',
-        targetHandle: 'prev'
     }
 }
