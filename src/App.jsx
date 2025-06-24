@@ -10,7 +10,7 @@ import FlowAnalyser from './flow-analysis';
 import convertToVisibleGraph from './FlowGraph';
 import { SingleInstructionBlock } from './block';
 import toBasicBlocks from './basic-blocks';
-import { getLayoutedElements } from './layout';
+import { getLayoutedElements } from './alt_layout';
 
 enableMapSet();
 
@@ -74,9 +74,7 @@ function App() {
     }
 
     const onLayoutPressed = () => {
-        let { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, { direction: "TB" });
-        setNodes([...layoutedNodes]);
-        setEdges([...layoutedEdges]);
+        getLayoutedElements(nodes, edges, setNodes, setEdges);
     }
 
     return (
