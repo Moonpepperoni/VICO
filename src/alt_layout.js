@@ -15,7 +15,8 @@ export const getLayoutedElements = (nodes, edges, setNodes, setEdges) => {
         id: 'root',
         layoutOptions: layoutOptions,
         children: nodes.map((node) => ({
-            ...node,
+            extNode: node,
+            id: node.id,
             width: node.measured.width,
             height: node.measured.height,
         })),
@@ -25,8 +26,13 @@ export const getLayoutedElements = (nodes, edges, setNodes, setEdges) => {
     elk.layout(graph).then(({ children, edges: inner_edges }) => {
         // By mutating the children in-place we saves ourselves from creating a
         // needless copy of the nodes array.
-        children.forEach((node) => {
-            node.position = { x: node.x, y: node.y };
+        let new_nodes = children.map(node => {
+            return {
+                ...node.extNode,
+                position: {
+                    x: node.x, y: node.y,
+                }
+            };
         });
 
         let new_edges = inner_edges.map(edge => {
@@ -54,7 +60,7 @@ export const getLayoutedElements = (nodes, edges, setNodes, setEdges) => {
             };
         });
 
-        setNodes(children);
+        setNodes(new_nodes);
         setEdges(new_edges);
     });
 }
