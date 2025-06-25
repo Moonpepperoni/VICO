@@ -8,7 +8,8 @@ export const getLayoutedElements = (nodes, edges, setNodes, setEdges) => {
         'algorithm': "layered",
         "elk.direction": "DOWN",
         "elk.edgeRouting": "POLYLINE",
-        "elk.layered.considerModelOrder.strategy": "PREFER_NODES"
+        "elk.layered.considerModelOrder.strategy": "PREFER_NODES",
+        "elk.spacing.nodeSelfLoop": 20.0,
     }
     const nodeIds = nodes.map(n => n.id);
     const graph = {
@@ -20,7 +21,7 @@ export const getLayoutedElements = (nodes, edges, setNodes, setEdges) => {
             width: node.measured.width,
             height: node.measured.height,
         })),
-        edges: edges.filter(e => nodeIds.includes(e.target)).map(e => +e.target < +e.source ? { ...e, target: e.source, source: e.target, reverse: true } : { ...e, reverse: false }),
+        edges: edges.filter(e => nodeIds.includes(e.target)).map(e => +e.target <= +e.source ? { ...e, target: e.source, source: e.target, reverse: true } : { ...e, reverse: false }),
     };
 
     elk.layout(graph).then(({ children, edges: inner_edges }) => {
