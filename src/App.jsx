@@ -22,15 +22,32 @@ function App() {
     const analyser = useRef(null);
     const algStates = useRef(null);
 
+
     useEffect(() => {
         if (!algStates.current) {
             return;
         }
-        let states = algStates.current?.[0]
-        let [nodes, edges] = convertToVisibleGraph({ verteces: states.verteces });
-        setNodes(nodes);
-        setEdges(edges);
-    }, [algStates, algStateIndex])
+        let states = algStates.current[algStateIndex];
+        let [newNodes, newEdges] = convertToVisibleGraph({ verteces: states.verteces });
+        setNodes(oldNodes => {
+            let cache = new Map();
+            oldNodes.forEach(node => {
+                cache[node.id] = node;
+            });
+            return newNodes.map(nnode => {
+                let old = cache[nnode.id];
+                if (!old) {
+                    return nnode;
+                }
+                return ({
+                    ...nnode,
+                    position: old.position,
+                });
+            });
+        });
+        setEdges(newEdges);
+    }, [algStates, algStateIndex]);
+
 
     const readBlocks = (fileData) => {
         setBlocks(parseTac(tokeniseRegex(fileData)).map(SingleInstructionBlock.fromInstruction));
@@ -49,22 +66,25 @@ function App() {
         let states = analyser.current.do(blocks);
         algStates.current = states;
         setAlgStateIndex(0);
-    }
+    };
 
     const onStepForward = () => {
         let newIndex = algStateIndex + 1;
-        if (newIndex >= algStates.length) {
+        if (newIndex >= algStates.current.length) {
             console.log("no more stuff");
             return;
         }
         setAlgStateIndex(newIndex);
-    }
+    };
 
     const onStepBackward = () => {
         let newIndex = algStateIndex - 1;
-        if (newIndex < 0) return;
+        if (newIndex < 0) {
+            console.log("cant go back beyond start");
+            return;
+        }
         setAlgStateIndex(newIndex);
-    }
+    };
 
     const convertToBasicBlocks = () => {
         setBlocks(toBasicBlocks(blocks));

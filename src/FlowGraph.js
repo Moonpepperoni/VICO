@@ -3,17 +3,15 @@ import { MarkerType } from "@xyflow/react";
 export default function convertToVisibleGraph({ verteces }) {
     let nodes = [];
     let displayEdges = [];
-    let idCounter = 0;
 
     verteces.forEach(({ block, data }) => {
         nodes.push({
             block,
             type: "block",
-            position: { x: idCounter * 15, y: idCounter * 100 },
+            position: { x: 0, y: 0 },
             id: `${block.id}`,
             data: { block, label: `use: ${[...data.use]} def: ${[...data.def]} in: ${[...data.inSet]} out: ${[...data.outSet]}` }
         });
-        idCounter++;
     });
 
     for (let v of verteces) {
