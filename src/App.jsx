@@ -1,6 +1,6 @@
 import './App.css';
 import FileForm from './FileForm';
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { enableMapSet } from 'immer';
 import tokeniseRegex from './TacTokens';
 import parseTac from './TacParser';
@@ -18,9 +18,19 @@ function App() {
     const [blocks, setBlocks] = useState(null);
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
-    const [algStates, setAlgStates] = useState([]);
     const [algStateIndex, setAlgStateIndex] = useState(null);
     const analyser = useRef(null);
+    const algStates = useRef(null);
+
+    useEffect(() => {
+        if (!algStates.current) {
+            return;
+        }
+        let states = algStates.current?.[0]
+        let [nodes, edges] = convertToVisibleGraph({ verteces: states.verteces });
+        setNodes(nodes);
+        setEdges(edges);
+    }, [algStates, algStateIndex])
 
     const readBlocks = (fileData) => {
         setBlocks(parseTac(tokeniseRegex(fileData)).map(SingleInstructionBlock.fromInstruction));
@@ -37,11 +47,8 @@ function App() {
         }
         analyser.current = new FlowAnalyser();
         let states = analyser.current.do(blocks);
-        setAlgStates(states);
+        algStates.current = states;
         setAlgStateIndex(0);
-        let [nodes, edges] = convertToVisibleGraph({ verteces: states[0].verteces });
-        setNodes(nodes);
-        setEdges(edges);
     }
 
     const onStepForward = () => {
@@ -51,24 +58,18 @@ function App() {
             return;
         }
         setAlgStateIndex(newIndex);
-        let [nodes, edges] = convertToVisibleGraph({ verteces: algStates[newIndex].verteces, edges: algStates[newIndex].edges });
-        setNodes(nodes);
-        setEdges(edges);
     }
 
     const onStepBackward = () => {
         let newIndex = algStateIndex - 1;
         if (newIndex < 0) return;
         setAlgStateIndex(newIndex);
-        let [nodes, edges] = convertToVisibleGraph({ verteces: algStates[newIndex].verteces, edges: algStates[newIndex].edges });
-        setNodes(nodes);
-        setEdges(edges);
     }
 
     const convertToBasicBlocks = () => {
         setBlocks(toBasicBlocks(blocks));
         setAlgStateIndex(null);
-        setAlgStates([]);
+        algStates.current = null;
         setEdges([]);
         setNodes([]);
     }
