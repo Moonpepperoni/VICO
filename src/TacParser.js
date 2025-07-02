@@ -69,6 +69,10 @@ class Quadruple {
                 return `goto ${this.result.val}`;
             case 'cjmp':
                 return `if ${this.arg1?.val} ${this.op?.val} ${this.arg2?.val} goto ${this.result?.val}`
+            case 'entry':
+                return 'ENTRY'
+            case 'exit':
+                return 'EXIT'
         }
     }
 }
@@ -131,8 +135,8 @@ function parseAssignRest(rest) {
 
 export default function parseTac(tokens) {
     let tokenStack = tokens.reverse();
-    let quadruples = [];
-    let id = 0;
+    let quadruples = [new Quadruple(null, null, null, null, 'entry', 0, 'entry')];
+    let id = 1;
 
     while (tokenStack.length > 0) {
         let instructionTokens = [];
@@ -160,6 +164,8 @@ export default function parseTac(tokens) {
             instruction.result.val = pos;
         }
     }
+
+    quadruples.push(new Quadruple(null, null, null, null, 'exit', id, 'exit'))
 
     return quadruples;
 }

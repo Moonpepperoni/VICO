@@ -1,25 +1,5 @@
 import { Handle, Position } from "@xyflow/react";
 
-function instructionToString(instr) {
-    switch (instr.type) {
-        case 'assign': {
-            let start = `${instr.result.val} = `;
-            if (instr.arg2) {
-                start += `${instr.arg1.val} ${instr.op.val} ${instr.arg2.val}`;
-            } else if (instr.op) {
-                start += `${instr.op.val} ${instr.arg1.val}`;
-            } else {
-                start += `${instr.arg1.val}`;
-            }
-            return start;
-        }
-        case 'jmp':
-            return `goto ${instr.result.val}`;
-        case 'cjmp':
-            return `if ${instr.arg1?.val} ${instr.op?.val} ${instr.arg2?.val} goto ${instr.result?.val}`
-    }
-}
-
 // TODO: extract this display logic out, so that names and descriptions are defined outside this node
 // we gain better reusability from this node
 export default function BlockNode({ data }) {
@@ -35,7 +15,7 @@ export default function BlockNode({ data }) {
             <div style={{ display: 'flex' }}>
                 <div style={{ marginRight: "20px" }}>
                     <h3 style={{ borderBottom: "2px dashed black" }}>Code</h3>
-                    {data.block.instructions.map(i => <p><code>{instructionToString(i)}</code></p>)}
+                    {data.block.instructions.map(i => <p><code>{i.toString()}</code></p>)}
                 </div>
                 <div style={{ marginLeft: "20px" }}>
                     <h3 style={{ borderBottom: "2px dashed black" }}>Liveness</h3>

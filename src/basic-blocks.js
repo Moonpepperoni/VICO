@@ -1,6 +1,8 @@
 export default function convertToBasicBlocks(singleBlocks) {
-    let [first, ...restBlocks] = singleBlocks;
-    let leaderIds = new Set([first.id]);
+    let [entry, first, ...restBlocks] = singleBlocks;
+    let exit = restBlocks.at(-1);
+    restBlocks = restBlocks.slice(0, -1);
+    let leaderIds = new Set([entry.id, first.id, exit.id]);
     for (let block of restBlocks) {
         // must exist
         if (block.jmpTarget) {
