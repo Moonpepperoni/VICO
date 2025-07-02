@@ -10,7 +10,7 @@ export default function convertToVisibleGraph({ verteces }) {
             type: "block",
             position: { x: 0, y: 0 },
             id: `${block.id}`,
-            data: { block, label: `use: ${[...data.use]} def: ${[...data.def]} in: ${[...data.inSet]} out: ${[...data.outSet]}` }
+            data: { block, liveness: { def: [...data.def], use: [...data.use], in: [...data.inSet], out: [...data.outSet] } },
         });
     });
 
