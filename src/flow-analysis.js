@@ -1,6 +1,11 @@
 import { produce } from "immer";
 
-// edges are implicit
+// TODO: Refactor this entirely
+// We dont need to return verteces and all this blah, and we can also extract the use and def data completely
+// then we can also build a simple in/out/use/def store that auto tracks looking and changing for displaying
+// this also adds a nice seperation of concerns, where things happen automatically, and the flowanalyser now
+// does not depend on the instructions directly making this very nice to, which was a previous concern
+// finally we can add nice descriptions to everything, because the code will become much cleaner and easier to follow
 export default class FlowAnalyser {
     #verteces;
     #states;
@@ -68,8 +73,9 @@ export default class FlowAnalyser {
     }
 }
 
-
-
+// TODO: fix for single instruction mode but -> see below
+// after the restructuring of the flow analysis, this also immediatly cleans this TODO 
+// nicely for us, because now we dont need to expose a decision or anything
 function getUsesAndDefsForBlock(block) {
     let uses = new Set();
     let defs = new Set();
