@@ -1,0 +1,62 @@
+export function tokenizeString(input: string): Array<Token> {
+    let tokens: Array<Token> = [];
+    let parts = input.split(/(?:\r\n|\n)+/).map(l => l.trim()).filter(l => l !== "");
+    for (let [i, line] of parts.entries()) {
+        // this is to handle the special case of label declarations
+        // which is the only token, that doesnt need to be split by at least one space
+        let lineCleaned = line.split(/(:)/).join(" ").trim();
+        let lineParts = lineCleaned.split(/(?: |\t)+/);
+        lineParts.forEach(p => tokens.push(readSingleToken(p, i)));
+        tokens.push({ kind: 'eol', line: i } as Token);
+    }
+    return tokens;
+}
+
+const LABEL_REGEX = /^([A-Z](_|[A-Z0-9])*[A-Z0-9])$/;
+const IDENT_REGEX = /^([a-z][a-z0-9]*)$/;
+const INT_REGEX = /^(0|([1-9][0-9]*))$/;
+const IF_REGEX = /^if$/;
+const IF_FALSE_REGEX = /^ifFalse$/;
+const GOTO_REGEX = /^goto$/;
+const SYMBOL_REGEX = /^(\+|-|\*|\/|%|(==)|(<=)|(>=)|(!=)|<|>|=|:|!)$/;
+
+let multiline = `a = b
+if a == b goto HELLO`;
+
+tokenizeString(multiline);
+
+function readSingleToken(rawToken: string, line: number): Token {
+    if (LABEL_REGEX.test(rawToken)) {
+        return { kind: 'label', val: rawToken, line };
+    } else if (IF_REGEX.test(rawToken)) {
+        return { kind: 'if', line };
+    } else if (IF_FALSE_REGEX.test(rawToken)) {
+        return { kind: 'ifFalse', line };
+    } else if (GOTO_REGEX.test(rawToken)) {
+        return { kind: 'goto', line };
+    } else if (SYMBOL_REGEX.test(rawToken)) {
+        return { kind: "symbol", val: rawToken, line };
+    } else if (INT_REGEX.test(rawToken)) {
+        return { kind: 'integer_literal', val: rawToken, line };
+    } else if (IDENT_REGEX.test(rawToken)) {
+        return { kind: 'identifier', val: rawToken, line };
+    } else {
+        throw UnexpectedTokenError(rawToken, line);
+    }
+}
+
+function UnexpectedTokenError(rawToken: string, line: number): Error {
+    return new Error(`error on line ${line} found the token "${rawToken}", which is not supported`);
+}
+
+export type TokenVal = { line: number }
+
+export type Token = TokenVal &
+    ({ kind: 'identifier', val: string } |
+    { kind: 'integer_literal', val: string } |
+    { kind: 'symbol', val: string } |
+    { kind: 'label', val: string } |
+    { kind: 'goto' } |
+    { kind: 'eol' } |
+    { kind: 'ifFalse' } |
+    { kind: 'if' });
