@@ -1,13 +1,13 @@
 export function tokenizeString(input: string): Array<Token> {
-    let tokens: Array<Token> = [];
-    let parts = input.split(/(?:\r\n|\n)+/).map(l => l.trim()).filter(l => l !== "");
-    for (let [i, line] of parts.entries()) {
+    const tokens: Array<Token> = [];
+    const parts = input.split(/(?:\r\n|\n)+/).map(l => l.trim()).filter(l => l !== "");
+    for (const [i, line] of parts.entries()) {
         // this is to handle the special case of label declarations
         // which is the only token, that doesnt need to be split by at least one space
-        let lineCleaned = line.split(/(:)/).join(" ").trim();
-        let lineParts = lineCleaned.split(/(?: |\t)+/);
-        lineParts.forEach(p => tokens.push(readSingleToken(p, i)));
-        tokens.push({ kind: 'eol', line: i } as Token);
+        const lineCleaned = line.split(/(:)/).join(" ").trim();
+        const lineParts = lineCleaned.split(/(?: |\t)+/);
+        lineParts.forEach(p => tokens.push(readSingleToken(p, i + 1)));
+        tokens.push({ kind: 'eol', line: i +1 } as Token);
     }
     return tokens;
 }
