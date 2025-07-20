@@ -20,11 +20,6 @@ const IF_FALSE_REGEX = /^ifFalse$/;
 const GOTO_REGEX = /^goto$/;
 const SYMBOL_REGEX = /^(\+|-|\*|\/|%|(==)|(<=)|(>=)|(!=)|<|>|=|:|!)$/;
 
-let multiline = `a = b
-if a == b goto HELLO`;
-
-tokenizeString(multiline);
-
 function readSingleToken(rawToken: string, line: number): Token {
     if (LABEL_REGEX.test(rawToken)) {
         return { kind: 'label', val: rawToken, line };
