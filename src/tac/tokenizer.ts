@@ -1,3 +1,6 @@
+// TODO: refactor to allow no space between certain tokens
+// this will most likely need a complete rewrite because we use the fact that we can split this up into tokens at spaces
+
 export function tokenizeString(input: string): Array<Token> {
     const tokens: Array<Token> = [];
     const parts = input.split(/(?:\r\n|\n)+/).map(l => l.trim()).filter(l => l !== "");

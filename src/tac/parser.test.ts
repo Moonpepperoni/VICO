@@ -1,5 +1,5 @@
 import {expect, test} from "vitest";
-import {parseTac} from "./tac-parser.ts";
+import {parseTac} from "./parser.ts";
 import {
     BinaryAssignInstruction,
     CopyInstruction,
@@ -7,7 +7,7 @@ import {
     IfSingleOperandInstruction,
     IfWithOperatorInstruction,
     JumpInstruction, UnaryAssignInstruction
-} from "./tac-parser-types.ts";
+} from "./parser-types.ts";
 
 
 test('should parse goto instruction', () => {

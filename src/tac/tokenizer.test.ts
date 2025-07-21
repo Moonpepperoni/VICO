@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { tokenizeString } from "./tac-tokenizer";
+import { tokenizeString } from "./tokenizer.ts";
 
 test('should detect if token', () => {
     expect(tokenizeString('if')).toContainEqual({ kind: 'if', line: 1 });

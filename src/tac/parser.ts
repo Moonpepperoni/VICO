@@ -1,4 +1,4 @@
-import {type Token, tokenizeString} from "./tac-tokenizer";
+import {type Token, tokenizeString} from "./tokenizer.ts";
 import {
     BinaryAssignInstruction,
     CopyInstruction,
@@ -15,7 +15,7 @@ import {
     UnaryAssignInstruction,
     UnexpectedEndOfInstructionError,
     UnexpectedTokenError
-} from "./tac-parser-types.ts";
+} from "./parser-types.ts";
 
 export function parseTac(input: string): Array<TacInstruction> {
     const tokens = tokenizeString(input);
