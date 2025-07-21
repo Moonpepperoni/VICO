@@ -36,10 +36,12 @@ export type BinaryOperator = RelationOperator | BinaryArithmaticOperator;
 abstract class BaseInstruction {
     readonly label?: string;
     readonly line: number;
+    readonly id : number;
 
-    protected constructor(label: undefined | string, line: number) {
+    protected constructor(label: undefined | string, line: number, id : number) {
         this.label = label;
         this.line = line;
+        this.id = id;
     }
 
     abstract toString(): string;
@@ -49,8 +51,8 @@ export class JumpInstruction extends BaseInstruction {
     readonly kind = 'jump';
     readonly jumpLabel: string;
 
-    constructor(label: undefined | string, jmpLabel: string, line: number) {
-        super(label, line);
+    constructor(id : number, label: undefined | string, jmpLabel: string, line: number) {
+        super(label, line, id);
         this.jumpLabel = jmpLabel;
     }
 
@@ -66,8 +68,8 @@ export class IfWithOperatorInstruction extends BaseInstruction {
     readonly right: Operand;
     readonly operator: RelationOperator;
 
-    constructor(label: undefined | string, jmpLabel: string, line: number, left: Operand, right: Operand, operator: RelationOperator) {
-        super(label, line);
+    constructor(id : number, label: undefined | string, jmpLabel: string, line: number, left: Operand, right: Operand, operator: RelationOperator) {
+        super(label, line, id);
         this.jumpLabel = jmpLabel;
         this.left = left;
         this.right = right;
@@ -85,8 +87,8 @@ export class IfSingleOperandInstruction extends BaseInstruction {
     readonly operand: Ident;
 
 
-    constructor(label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
-        super(label, line);
+    constructor(id : number, label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
+        super(label, line, id);
         this.jumpLabel = jmpLabel;
         this.operand = operand;
     }
@@ -102,8 +104,8 @@ export class IfFalseInstruction extends BaseInstruction {
     readonly operand: Ident;
 
 
-    constructor(label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
-        super(label, line);
+    constructor(id : number, label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
+        super(label, line, id);
         this.jumpLabel = jmpLabel;
         this.operand = operand;
     }
@@ -119,8 +121,8 @@ export class CopyInstruction extends BaseInstruction {
     readonly operand: Operand;
 
 
-    constructor(label: undefined | string, line: number, target: Ident, operand: Operand) {
-        super(label, line);
+    constructor(id : number, label: undefined | string, line: number, target: Ident, operand: Operand) {
+        super(label, line, id);
         this.operand = operand;
         this.target = target;
     }
@@ -137,8 +139,8 @@ export class BinaryAssignInstruction extends BaseInstruction {
     readonly right: Operand;
     readonly operator: BinaryOperator;
 
-    constructor(label: undefined | string, line: number, target: Ident, left: Operand, right: Operand, operator: BinaryOperator) {
-        super(label, line);
+    constructor(id: number, label: undefined | string, line: number, target: Ident, left: Operand, right: Operand, operator: BinaryOperator) {
+        super(label, line, id);
         this.left = left;
         this.target = target;
         this.right = right;
@@ -156,8 +158,8 @@ export class UnaryAssignInstruction extends BaseInstruction {
     readonly operand: Operand;
     readonly operator: UnaryOperator;
 
-    constructor(label: undefined | string, line: number, target: Ident, operand: Operand, operator: UnaryOperator) {
-        super(label, line);
+    constructor(id : number, label: undefined | string, line: number, target: Ident, operand: Operand, operator: UnaryOperator) {
+        super(label, line, id);
         this.operand = operand;
         this.target = target;
         this.operator = operator;
