@@ -33,7 +33,6 @@ export type BinaryArithmaticOperator = "+" | "-" | "*" | "/" | "%";
 
 export type BinaryOperator = RelationOperator | BinaryArithmaticOperator;
 
-
 abstract class BaseInstruction {
     readonly label?: string;
     readonly line: number;
