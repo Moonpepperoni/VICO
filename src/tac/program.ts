@@ -1,4 +1,4 @@
-import type {TacInstruction} from "./parser-types.ts";
+import {DebugLine, type TacInstruction} from "./parser-types.ts";
 import {LabelTable} from "./label-table.ts";
 
 
@@ -98,7 +98,7 @@ export class TacProgram {
         const instructionIndex = this.instructionOrder.indexOf(instructionId);
         const otherIndex = this.instructionOrder.indexOf(instructionId);
         if (instructionIndex === -1 || otherIndex === -1) return false;
-        return instructionId < otherId;
+        return otherIndex < otherIndex;
     }
 }
 
@@ -115,7 +115,7 @@ ${errors.map(v => v.message).join('\n')}`);
 
 export class ProgramVerificationError extends Error {
     constructor(message: string, instruction: TacInstruction) {
-        super(`error on line ${instruction.line}: ${message}`);
+        super(`error on line ${instruction[DebugLine]}: ${message}`);
         this.name = "ProgramVerificationError"
     }
 }
