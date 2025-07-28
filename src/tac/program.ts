@@ -3,12 +3,12 @@ import {LabelTable} from "./label-table.ts";
 
 
 // for now this step only verifies that all labels are correct, but this can be changed in the future
-function verifyTac(instructions: Array<TacInstruction>): {
-    verifiedInstructions: Array<TacInstruction>,
+function verifyTac(instructions: Map<number, TacInstruction>): {
+    verifiedInstructions: Map<number, TacInstruction>,
     labelTable: LabelTable
 } {
-    const allErrors : Array<ProgramVerificationError> = [];
-    const {table, errors : fillErrors} = fillLabelTable(instructions);
+    const allErrors: Array<ProgramVerificationError> = [];
+    const {table, errors: fillErrors} = fillLabelTable(instructions);
     allErrors.push(...fillErrors);
     allErrors.push(...verifyLabelUsage(instructions, table));
     if (allErrors.length !== 0) {
@@ -17,27 +17,27 @@ function verifyTac(instructions: Array<TacInstruction>): {
     return {verifiedInstructions: instructions, labelTable: table};
 }
 
-function fillLabelTable(instructions: Array<TacInstruction>): {
+function fillLabelTable(instructions: Map<number, TacInstruction>): {
     table: LabelTable,
     errors: Array<ProgramVerificationError>
 } {
     const errors = [];
     const labelTable = new LabelTable();
-    for (const instruction of instructions) {
+    for (const [id, instruction] of instructions.entries()) {
         const label = instruction.label;
         if (label === undefined) continue;
         if (labelTable.getInstructionIdFromLabel(label) !== undefined) {
             errors.push(new LabelAlreadyDefinedError(label, instruction));
             continue;
         }
-        labelTable.addNewInstruction(label, instruction.id);
+        labelTable.addNewInstruction(label, id);
     }
     return {table: labelTable, errors};
 }
 
-function verifyLabelUsage(instructions: Array<TacInstruction>, labelTable: LabelTable): Array<ProgramVerificationError> {
+function verifyLabelUsage(instructions: Map<number, TacInstruction>, labelTable: LabelTable): Array<ProgramVerificationError> {
     const errors = [];
-    for (const instruction of instructions) {
+    for (const instruction of instructions.values()) {
         switch (instruction.kind) {
             case "jump":
             case "ifFalse":
@@ -61,11 +61,13 @@ export class TacProgram {
     private readonly instructionOrder: Array<number>;
     private readonly labelTable: LabelTable;
     private readonly instructionLookupTable: Map<number, TacInstruction>;
+    private readonly idGenerator: () => number;
 
-    private constructor(instructions: Array<TacInstruction>, labelTable: LabelTable) {
+    private constructor(instructionLookuptable: Map<number, TacInstruction>, instructionOrder: Array<number>, labelTable: LabelTable, idGenerator: () => number) {
         this.labelTable = labelTable;
-        this.instructionOrder = instructions.map(i => i.id);
-        this.instructionLookupTable = new Map(instructions.map(i => [i.id, i]));
+        this.instructionOrder = instructionOrder;
+        this.instructionLookupTable = instructionLookuptable;
+        this.idGenerator = idGenerator;
     }
 
     get instructions(): Array<TacInstruction> {
@@ -76,9 +78,16 @@ export class TacProgram {
         return this.instructionOrder;
     }
 
-    static fromParsedInstructions(instructions: Array<TacInstruction>): TacProgram {
-        const {verifiedInstructions, labelTable} = verifyTac(instructions);
-        return new TacProgram(verifiedInstructions, labelTable);
+    static fromParsedInstructions(instructions: Array<TacInstruction>, idGenerator = countingGenerator(0)): TacProgram {
+        const lookupTable = new Map<number, TacInstruction>();
+        const instructionOrder = [];
+        for (const instr of instructions) {
+            const newId = idGenerator();
+            lookupTable.set(newId, instr);
+            instructionOrder.push(newId);
+        }
+        const {verifiedInstructions, labelTable} = verifyTac(lookupTable);
+        return new TacProgram(verifiedInstructions, instructionOrder, labelTable, idGenerator);
     }
 
     getInstructionById(instructionId: number): TacInstruction | undefined {
@@ -96,10 +105,18 @@ export class TacProgram {
 
     instructionIsBefore(instructionId: number, otherId: number): boolean {
         const instructionIndex = this.instructionOrder.indexOf(instructionId);
-        const otherIndex = this.instructionOrder.indexOf(instructionId);
+        const otherIndex = this.instructionOrder.indexOf(otherId);
         if (instructionIndex === -1 || otherIndex === -1) return false;
-        return otherIndex < otherIndex;
+        return instructionId < otherIndex;
     }
+
+    reserveNextId(): number {
+        return this.idGenerator();
+    }
+}
+
+function countingGenerator(start: number) {
+    return () => start++;
 }
 
 export class ProgramCollectiveError extends Error {

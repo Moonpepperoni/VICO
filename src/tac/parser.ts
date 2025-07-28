@@ -19,13 +19,11 @@ import {
 
 export class TacParser {
 
-    readonly idGenerator : () => number;
     readonly tokens : Array<Token>;
     readonly instructions : Array<TacInstruction>;
     ran : boolean;
 
-    constructor(idGenerator: () => number, input : string) {
-        this.idGenerator = idGenerator;
+    constructor(input : string) {
         this.tokens = tokenizeString(input);
         this.tokens.reverse();
         this.instructions = [];
@@ -81,7 +79,6 @@ export class TacParser {
     }
 
     parseGoto(label?: string) {
-        const id = this.idGenerator();
         // remove goto
         this.tokens.pop();
 
@@ -91,7 +88,7 @@ export class TacParser {
 
         const eol = this.tokens.pop();
         if (eol === undefined) throw new UnexpectedEndOfInstructionError();
-        this.instructions.push(new JumpInstruction(id, label, jmpLabel.val, jmpLabel.line));
+        this.instructions.push(new JumpInstruction(label, jmpLabel.val, jmpLabel.line));
     }
 
     parseIfRest() {
@@ -111,7 +108,6 @@ export class TacParser {
     }
 
     parseIf(label: undefined | string) {
-        const id = this.idGenerator();
         // remove if
         this.tokens.pop();
 
@@ -134,18 +130,17 @@ export class TacParser {
         const {jumpLabelToken, jumpLabel} = this.parseIfRest();
 
         if (operator !== undefined && rightOp !== undefined) {
-            this.instructions.push(new IfWithOperatorInstruction(id, label, jumpLabel, jumpLabelToken.line, leftOp, rightOp, operator));
+            this.instructions.push(new IfWithOperatorInstruction(label, jumpLabel, jumpLabelToken.line, leftOp, rightOp, operator));
             return;
         }
 
         if (leftOp.kind !== 'ident') {
             throw new UnexpectedTokenError();
         }
-        this.instructions.push(new IfSingleOperandInstruction(id, label, jumpLabel, jumpLabelToken.line, leftOp));
+        this.instructions.push(new IfSingleOperandInstruction(label, jumpLabel, jumpLabelToken.line, leftOp));
     }
 
     parseIfFalse(label: undefined | string) {
-        const id = this.idGenerator();
         // remove ifFalse Token
         this.tokens.pop();
         const operandToken = this.tokens.pop()
@@ -156,11 +151,10 @@ export class TacParser {
 
         const {jumpLabelToken, jumpLabel} = this.parseIfRest();
 
-        this.instructions.push(new IfFalseInstruction(id, label, jumpLabel, jumpLabelToken.line, identifier));
+        this.instructions.push(new IfFalseInstruction(label, jumpLabel, jumpLabelToken.line, identifier));
     }
 
     parseAssign(label: undefined | string) {
-        const id = this.idGenerator();
         const identifierToken = this.tokens.pop();
         if (identifierToken === undefined) throw new UnexpectedEndOfInstructionError();
         if (identifierToken.kind !== 'identifier') throw new UnexpectedTokenError();
@@ -185,7 +179,7 @@ export class TacParser {
             const eol = this.tokens.pop();
             if (eol === undefined) throw new UnexpectedEndOfInstructionError();
             if (eol.kind !== 'eol') throw new UnexpectedTokenError();
-            this.instructions.push(new UnaryAssignInstruction(id, label, eol.line, target, singleOperand, unaryOperator));
+            this.instructions.push(new UnaryAssignInstruction(label, eol.line, target, singleOperand, unaryOperator));
             return;
         }
 
@@ -194,7 +188,7 @@ export class TacParser {
         const decisionToken = this.tokens.pop();
         if (decisionToken === undefined) throw new UnexpectedEndOfInstructionError();
         if (decisionToken.kind === 'eol') {
-            this.instructions.push(new CopyInstruction(id, label, identifierToken.line, target, leftOp));
+            this.instructions.push(new CopyInstruction(label, identifierToken.line, target, leftOp));
             return;
         }
         if (decisionToken.kind === 'symbol') {
@@ -210,7 +204,7 @@ export class TacParser {
             throw new UnexpectedEndOfInstructionError();
         }
 
-        this.instructions.push(new BinaryAssignInstruction(id, label, eol.line, target, leftOp, rightOp, operator));
+        this.instructions.push(new BinaryAssignInstruction(label, eol.line, target, leftOp, rightOp, operator));
     }
 
     extractOperand(): Operand {
@@ -227,8 +221,3 @@ export class TacParser {
         }
     }
 }
-
-
-
-
-

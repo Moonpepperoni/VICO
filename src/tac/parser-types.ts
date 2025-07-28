@@ -6,6 +6,8 @@ export class UnexpectedTokenError extends Error {
 
 }
 
+export const DebugLine = Symbol.for('line');
+
 export type TacInstruction =
     JumpInstruction
     | IfWithOperatorInstruction
@@ -35,13 +37,11 @@ export type BinaryOperator = RelationOperator | BinaryArithmaticOperator;
 
 abstract class BaseInstruction {
     readonly label?: string;
-    readonly line: number;
-    readonly id : number;
+    readonly [DebugLine]: number;
 
-    protected constructor(label: undefined | string, line: number, id : number) {
+    protected constructor(label: undefined | string, line: number) {
         this.label = label;
-        this.line = line;
-        this.id = id;
+        this[DebugLine] = line;
     }
 
     abstract toString(): string;
@@ -51,8 +51,8 @@ export class JumpInstruction extends BaseInstruction {
     readonly kind = 'jump';
     readonly jumpLabel: string;
 
-    constructor(id : number, label: undefined | string, jmpLabel: string, line: number) {
-        super(label, line, id);
+    constructor(label: undefined | string, jmpLabel: string, line: number) {
+        super(label, line);
         this.jumpLabel = jmpLabel;
     }
 
@@ -68,8 +68,8 @@ export class IfWithOperatorInstruction extends BaseInstruction {
     readonly right: Operand;
     readonly operator: RelationOperator;
 
-    constructor(id : number, label: undefined | string, jmpLabel: string, line: number, left: Operand, right: Operand, operator: RelationOperator) {
-        super(label, line, id);
+    constructor(label: undefined | string, jmpLabel: string, line: number, left: Operand, right: Operand, operator: RelationOperator) {
+        super(label, line);
         this.jumpLabel = jmpLabel;
         this.left = left;
         this.right = right;
@@ -87,8 +87,8 @@ export class IfSingleOperandInstruction extends BaseInstruction {
     readonly operand: Ident;
 
 
-    constructor(id : number, label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
-        super(label, line, id);
+    constructor(label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
+        super(label, line);
         this.jumpLabel = jmpLabel;
         this.operand = operand;
     }
@@ -104,8 +104,8 @@ export class IfFalseInstruction extends BaseInstruction {
     readonly operand: Ident;
 
 
-    constructor(id : number, label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
-        super(label, line, id);
+    constructor(label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
+        super(label, line);
         this.jumpLabel = jmpLabel;
         this.operand = operand;
     }
@@ -121,8 +121,8 @@ export class CopyInstruction extends BaseInstruction {
     readonly operand: Operand;
 
 
-    constructor(id : number, label: undefined | string, line: number, target: Ident, operand: Operand) {
-        super(label, line, id);
+    constructor(label: undefined | string, line: number, target: Ident, operand: Operand) {
+        super(label, line);
         this.operand = operand;
         this.target = target;
     }
@@ -139,8 +139,8 @@ export class BinaryAssignInstruction extends BaseInstruction {
     readonly right: Operand;
     readonly operator: BinaryOperator;
 
-    constructor(id: number, label: undefined | string, line: number, target: Ident, left: Operand, right: Operand, operator: BinaryOperator) {
-        super(label, line, id);
+    constructor(label: undefined | string, line: number, target: Ident, left: Operand, right: Operand, operator: BinaryOperator) {
+        super(label, line);
         this.left = left;
         this.target = target;
         this.right = right;
@@ -158,8 +158,8 @@ export class UnaryAssignInstruction extends BaseInstruction {
     readonly operand: Operand;
     readonly operator: UnaryOperator;
 
-    constructor(id : number, label: undefined | string, line: number, target: Ident, operand: Operand, operator: UnaryOperator) {
-        super(label, line, id);
+    constructor(label: undefined | string, line: number, target: Ident, operand: Operand, operator: UnaryOperator) {
+        super(label, line);
         this.operand = operand;
         this.target = target;
         this.operator = operator;
