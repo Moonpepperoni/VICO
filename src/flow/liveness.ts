@@ -119,24 +119,24 @@ export type LivenessNodeData = {
 export type LivenessSetData = { data: Set<string>, lookedAt: boolean, changed: boolean };
 
 export type LivenessCFG = {
-    entryId : number,
-    exitId : number,
+    entryId: number,
+    exitId: number,
     def: Map<number, Set<string>>,
     use: Map<number, Set<string>>,
     edges: Map<number, Set<number>>,
     nodes: Array<number>,
 };
 
-export function extractUseAndDefFromInstructions(instructions: Array<TacInstruction>): {
+export function extractUseAndDefFromInstructions(instructions: Map<number, TacInstruction>): {
     use: Map<number, Set<string>>,
     def: Map<number, Set<string>>
 } {
     const use = new Map();
     const def = new Map();
-    for (const instruction of instructions) {
+    for (const [id, instruction] of instructions) {
         const {useSet, defSet} = getUseAndDefFromInstruction(instruction);
-        use.set(instruction.id, useSet);
-        def.set(instruction.id, defSet);
+        use.set(id, useSet);
+        def.set(id, defSet);
     }
     return {use, def};
 }
@@ -150,7 +150,7 @@ function getUseAndDefFromInstruction(instruction: TacInstruction): { useSet: Set
             if (instruction.left.kind === 'ident') {
                 useSet.add(instruction.left.val);
             }
-            if (instruction.right.kind === 'integer') {
+            if (instruction.right.kind === 'ident') {
                 useSet.add(instruction.right.val);
             }
             break;
@@ -184,4 +184,75 @@ function getUseAndDefFromInstruction(instruction: TacInstruction): { useSet: Set
             break;
     }
     return {defSet, useSet};
+}
+
+function getUseAndDefFromBlocksInstructions(instructions: Array<TacInstruction>) {
+    const useSet = new Set<string>();
+    const defSet = new Set<string>();
+    const safeAddToUse = (val: string) => {
+        if (!defSet.has(val)) useSet.add(val);
+    }
+
+    const safeAddToDef = (val: string) => {
+        if (!useSet.has(val)) defSet.add(val);
+    }
+
+    for (const instruction of instructions) {
+
+        switch (instruction.kind) {
+            case "assignBinary":
+                if (instruction.left.kind === 'ident') {
+                    safeAddToUse(instruction.left.val);
+                }
+                if (instruction.right.kind === 'ident') {
+                    safeAddToUse(instruction.right.val);
+                }
+                safeAddToDef(instruction.target.val);
+                break;
+            case 'copy':
+                if (instruction.operand.kind === 'ident') {
+                    safeAddToUse(instruction.operand.val);
+                }
+                safeAddToDef(instruction.target.val);
+                break;
+            case 'assignUnary':
+                if (instruction.operand.kind === 'ident') {
+                    safeAddToUse(instruction.operand.val);
+                }
+                safeAddToDef(instruction.target.val);
+                break;
+            case 'ifFalse':
+                safeAddToUse(instruction.operand.val);
+                break;
+            case 'ifSingleOperand':
+                safeAddToUse(instruction.operand.val);
+                break;
+            case 'ifWithOperator':
+                if (instruction.left.kind === 'ident') {
+                    safeAddToUse(instruction.left.val);
+                }
+                if (instruction.right.kind === 'ident') {
+                    safeAddToUse(instruction.right.val);
+                }
+                break;
+            case "jump":
+                break;
+        }
+    }
+    return {defSet, useSet};
+
+}
+
+export function extractUseAndDefFromBasicBlocks(basicBlocks: Map<number, Array<TacInstruction>>): {
+    use: Map<number, Set<string>>,
+    def: Map<number, Set<string>>
+} {
+    const use = new Map();
+    const def = new Map();
+    for (const [id, instructions] of basicBlocks) {
+        const {useSet, defSet} = getUseAndDefFromBlocksInstructions(instructions);
+        use.set(id, useSet);
+        def.set(id, defSet);
+    }
+    return {use, def};
 }
