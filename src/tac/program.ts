@@ -70,12 +70,43 @@ export class TacProgram {
         this.idGenerator = idGenerator;
     }
 
-    get instructions(): Array<TacInstruction> {
-        return this.instructionOrder.map(i => this.instructionLookupTable.get(i)!);
+    get instructions(): Array<[number,TacInstruction]> {
+        return this.instructionOrder.map(i => [i, this.instructionLookupTable.get(i)!]);
     }
 
-    get instructionIds(): Array<number> {
+    get lastInstructionId() :  number {
+        return this.instructionOrder.at(-1)!;
+    }
+
+    get firstInstructionId() : number {
+        return this.instructionOrder[0];
+    }
+
+    get instructionIdsOrdered(): Array<number> {
         return this.instructionOrder;
+    }
+
+    get numberOfInstructions() : number {
+        return this.instructionLookupTable.size;
+    }
+
+    getExplicitJumpTargetIds(instructionId : number) : Set<number> {
+        const instruction = this.instructionLookupTable.get(instructionId)!;
+        switch (instruction.kind) {
+            case "ifFalse":
+            case "jump":
+            case "ifWithOperator":
+            case "ifSingleOperand":
+                return new Set([this.labelTable.getInstructionIdFromLabel(instruction.jumpLabel)!]);
+        }
+        return new Set();
+    }
+
+    getInstructionAfter(instructionId : number) : number | undefined {
+        for (let i = 0; i < this.instructionOrder.length - 1 ; i++) {
+            if (this.instructionOrder[i] === instructionId) return this.instructionOrder[i+1];
+        }
+        return undefined;
     }
 
     static fromParsedInstructions(instructions: Array<TacInstruction>, idGenerator = countingGenerator(0)): TacProgram {
@@ -103,11 +134,32 @@ export class TacProgram {
         return this.labelTable.getInstructionIdFromLabel(label);
     }
 
+    getInstructionIdsExecutedAfter(instructionId : number) : Set<number> {
+        const after = new Set<number>();
+        const instruction = this.instructionLookupTable.get(instructionId);
+        if (instruction === undefined) return after;
+        const instructionIndex = this.instructionOrder.indexOf(instructionId);
+        if (instruction.kind !== 'jump' && instructionIndex < this.numberOfInstructions - 1) after.add(instructionIndex+1);
+        switch (instruction.kind) {
+            case "jump":
+            case "ifSingleOperand":
+            case "ifWithOperator":
+            case "ifFalse":
+                after.add(this.labelTable.getInstructionIdFromLabel(instruction.jumpLabel)!);
+                break;
+        }
+        return after;
+    }
+
+    getInstructionIdsRanging(from : number, to? : number) : Array<number> {
+        return this.instructionIdsOrdered.slice(from, to);
+    }
+
     instructionIsBefore(instructionId: number, otherId: number): boolean {
         const instructionIndex = this.instructionOrder.indexOf(instructionId);
         const otherIndex = this.instructionOrder.indexOf(otherId);
         if (instructionIndex === -1 || otherIndex === -1) return false;
-        return instructionId < otherIndex;
+        return instructionIndex < otherIndex;
     }
 
     reserveNextId(): number {
