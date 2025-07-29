@@ -1,35 +1,51 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, {useState} from 'react';
+import {TopBar} from './TopBar';
+import {WelcomePage} from './WelcomePage';
+import {AnalysisPage} from './AnalysisPage';
+import 'bootstrap/dist/css/bootstrap.css'
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+interface FileData {
+    name: string;
+    content: string;
 }
 
-export default App
+const App: React.FC = () => {
+    const [currentPage, setCurrentPage] = useState<'welcome' | 'analysis'>('welcome');
+    const [uploadedFile, setUploadedFile] = useState<FileData | null>(null);
+
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file && file.name.endsWith('.tac')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setUploadedFile({
+                    name: file.name, content: e.target?.result as string
+                });
+                setCurrentPage('analysis');
+            };
+            reader.readAsText(file);
+        } else {
+            alert('Bitte wählen Sie eine .tac Datei aus.');
+        }
+    };
+
+    const handleBackToWelcome = () => {
+        setCurrentPage('welcome');
+        setUploadedFile(null);
+    };
+
+    return (<div className="vh-100 vw-100 d-flex flex-column">
+            <TopBar/>
+
+            <div className="flex-grow-1 overflow-hidden">
+                {currentPage === 'welcome' && (<WelcomePage onFileUpload={handleFileUpload}/>)}
+                {currentPage === 'analysis' && (<AnalysisPage
+                        fileName={uploadedFile?.name || ''}
+                        fileContent={uploadedFile?.content || ''}
+                        onBackToWelcome={handleBackToWelcome}
+                    />)}
+            </div>
+        </div>);
+};
+
+export default App;
