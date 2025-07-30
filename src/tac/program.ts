@@ -183,22 +183,30 @@ ${errors.map(v => v.message).join('\n')}`);
 }
 
 export class ProgramVerificationError extends Error {
-    constructor(message: string, instruction: TacInstruction) {
-        super(`error on line ${instruction[DebugLine]}: ${message}`);
+    readonly line: number;
+    readonly reason:string;
+    constructor(reason: string, instruction: TacInstruction) {
+        super(`error on line ${instruction[DebugLine]}: ${reason}`);
         this.name = "ProgramVerificationError"
+        this.line = instruction[DebugLine];
+        this.reason = reason;
     }
 }
 
 export class LabelNotDefinedError extends ProgramVerificationError {
+
     constructor(label: string, instruction: TacInstruction) {
-        super(`the label ${label} is never defined`, instruction);
+        const reason = `the label ${label} is never defined`;
+        super(reason, instruction);
         this.name = "LabelNotDefinedError";
     }
 }
 
 export class LabelAlreadyDefinedError extends ProgramVerificationError {
+
     constructor(label: string, instruction: TacInstruction) {
-        super(`the label ${label} is already defined`, instruction);
+        const reason = `the label ${label} is already defined`;
+        super(reason, instruction);
         this.name = "LabelDefinedMultipleTimes";
     }
 }
