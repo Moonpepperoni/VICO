@@ -15,10 +15,6 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
                                                                 selectedAlgorithm,
                                                                 onAlgorithmSelect
                                                             }) => {
-    const optimisationAlgorithms = [{id: 'constant-folding', name: 'Constant Folding'}, {
-        id: 'register-allocation',
-        name: 'Register Allocation'
-    }];
 
     const flowAlgorithms = [{id: 'constant-propagation', name: 'Constant Propagation'}, {
         id: 'liveness-instructions',
@@ -78,19 +74,6 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
                         </div>
                     </div>
 
-                    {/* Algorithm Selection */}
-                    <div className="mb-4">
-                        <h5 className="text-muted mb-3">Optimierungsalgorithmen:</h5>
-                        <div className="d-grid gap-2">
-                            {optimisationAlgorithms.map((algorithm) => (<button
-                                    key={algorithm.id}
-                                    className={`btn text-start ${selectedAlgorithm === algorithm.id ? 'btn-primary' : 'btn-outline-primary'}`}
-                                    onClick={() => onAlgorithmSelect(algorithm.id)}
-                                >
-                                    {algorithm.name}
-                                </button>))}
-                        </div>
-                    </div>
 
                     {/* Info Section */}
                     <div className="mt-auto">
