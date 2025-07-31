@@ -91,7 +91,7 @@ test('should not return hasChanged for a set that has not changed', () => {
             newSet.add("Agathe");
         })
     });
-    expect(setObserver.hasChanged(0)).toBe(false);
+    expect(setObserver.hasChanged(1)).toBe(false);
 });
 
 test('should reset hasChanged after change and resetting the change state', () => {
