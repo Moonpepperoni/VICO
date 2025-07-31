@@ -1,39 +1,41 @@
 // File Upload Component
 import React from "react";
+import { Container, Row, Col, Card, Form, Alert } from 'react-bootstrap';
 
 export const FileUpload: React.FC<{
     onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void
-}> = ({onFileUpload}) => (<div id="file-upload-section" className="container-fluid py-5 bg-light">
-        <div className="row justify-content-center">
-            <div className="col-lg-6">
-                <div className="card shadow">
-                    <div className="card-header bg-primary text-white text-center">
-                        <h3 className="card-title mb-0">Datei hochladen</h3>
-                    </div>
-                    <div className="card-body">
+}> = ({ onFileUpload }) => (
+    <Container fluid id="file-upload-section" className="py-5 bg-light">
+        <Row className="justify-content-center">
+            <Col lg={6}>
+                <Card className="shadow">
+                    <Card.Header className="bg-primary text-white text-center">
+                        <h3 className="mb-0">Datei hochladen</h3>
+                    </Card.Header>
+                    <Card.Body>
                         <div className="text-center mb-4">
                             <i className="display-1 text-muted">📄</i>
                         </div>
-                        <div className="mb-3">
-                            <label htmlFor="fileInput" className="form-label">
+                        <Form.Group className="mb-3">
+                            <Form.Label htmlFor="fileInput">
                                 Wählen Sie eine .tac Datei aus:
-                            </label>
-                            <input
+                            </Form.Label>
+                            <Form.Control
                                 type="file"
-                                className="form-control"
                                 id="fileInput"
                                 accept=".tac"
                                 onChange={onFileUpload}
                             />
-                        </div>
-                        <div className="alert alert-info">
+                        </Form.Group>
+                        <Alert variant="info">
                             <small>
                                 <strong>Hinweis:</strong> Nur .tac Dateien werden unterstützt.
                                 Diese sollten gültigen 3-Adress-Code enthalten.
                             </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>);
+                        </Alert>
+                    </Card.Body>
+                </Card>
+            </Col>
+        </Row>
+    </Container>
+);

@@ -1,30 +1,38 @@
+import React from "react";
+import { Card, Button, ButtonGroup, Alert } from 'react-bootstrap';
+
 interface ControlSidebarProps {
     selectedAlgorithm: string | null;
-    handleNext : () => void;
-    handlePrevious : () => void;
-    handleReset : () => void;
-    explanationText : string;
+    handleNext: () => void;
+    handlePrevious: () => void;
+    handleReset: () => void;
+    explanationText: string;
 }
 
-export const ControlSidebar: React.FC<ControlSidebarProps> = ({selectedAlgorithm, explanationText, handlePrevious, handleReset, handleNext}) => {
-
-    return (<div
+export const ControlSidebar: React.FC<ControlSidebarProps> = ({
+                                                                  selectedAlgorithm,
+                                                                  explanationText,
+                                                                  handlePrevious,
+                                                                  handleReset,
+                                                                  handleNext
+                                                              }) => {
+    return (
+        <div
             className="bg-light border-start d-flex flex-column"
-            style={{width: '320px', minWidth: '320px'}}
+            style={{ width: '320px', minWidth: '320px' }}
         >
             {/* Step Explanation Area */}
             <div className="flex-grow-1 p-3 border-bottom">
                 <h5 className="text-muted mb-3">Schritt-für-Schritt Erklärung</h5>
 
-                <div className="card">
-                    <div className="card-header bg-primary text-white">
+                <Card>
+                    <Card.Header className="bg-primary text-white">
                         <h6 className="mb-0">Aktueller Schritt</h6>
-                    </div>
-                    <div className="card-body">
+                    </Card.Header>
+                    <Card.Body>
                         <p className="mb-0">{explanationText}</p>
-                    </div>
-                </div>
-
+                    </Card.Body>
+                </Card>
             </div>
 
             {/* Control Panel */}
@@ -34,45 +42,46 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({selectedAlgorithm
                 {/* Playback Controls */}
                 <div className="mb-3">
                     <div className="d-grid gap-2">
-                        <div className="btn-group">
-                            <button
-                                className="btn btn-outline-primary"
+                        <ButtonGroup>
+                            <Button
+                                variant="outline-primary"
                                 onClick={handlePrevious}
                                 disabled={!selectedAlgorithm}
                             >
                                 ⏮ Zurück
-                            </button>
-                            <button
-                                className="btn btn-outline-primary"
+                            </Button>
+                            <Button
+                                variant="outline-primary"
                                 onClick={handleNext}
                                 disabled={true}
                             >
                                 Weiter ⏭
-                            </button>
-                        </div>
-                        <button
-                            className="btn btn-secondary"
+                            </Button>
+                        </ButtonGroup>
+                        <Button
+                            variant="secondary"
                             onClick={handleReset}
                             disabled={true}
                         >
                             🔄 Reset
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
                 {/* Algorithm Info */}
-                {(<div className="alert alert-info">
-                        <small>
-                            <strong>Aktiver Algorithmus:</strong><br/>
-                            {selectedAlgorithm === 'dead-code' && 'Dead Code Elimination'}
-                            {selectedAlgorithm === 'constant-folding' && 'Constant Folding'}
-                            {selectedAlgorithm === 'common-subexpression' && 'Common Subexpression Elimination'}
-                            {selectedAlgorithm === 'copy-propagation' && 'Copy Propagation'}
-                            {selectedAlgorithm === 'loop-optimization' && 'Loop Optimization'}
-                            {selectedAlgorithm === 'register-allocation' && 'Register Allocation'}
-                            {selectedAlgorithm === null && 'Keiner ausgewählt'}
-                        </small>
-                    </div>)}
+                <Alert variant="info">
+                    <small>
+                        <strong>Aktiver Algorithmus:</strong><br />
+                        {selectedAlgorithm === 'dead-code' && 'Dead Code Elimination'}
+                        {selectedAlgorithm === 'constant-folding' && 'Constant Folding'}
+                        {selectedAlgorithm === 'common-subexpression' && 'Common Subexpression Elimination'}
+                        {selectedAlgorithm === 'copy-propagation' && 'Copy Propagation'}
+                        {selectedAlgorithm === 'loop-optimization' && 'Loop Optimization'}
+                        {selectedAlgorithm === 'register-allocation' && 'Register Allocation'}
+                        {selectedAlgorithm === null && 'Keiner ausgewählt'}
+                    </small>
+                </Alert>
             </div>
-        </div>);
+        </div>
+    );
 };

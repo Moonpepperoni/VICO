@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button, Alert, Stack, Container } from 'react-bootstrap';
 
 interface AlgorithmMenuProps {
     isVisible: boolean;
@@ -16,15 +17,15 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
                                                                 onAlgorithmSelect
                                                             }) => {
 
-    const flowAlgorithms = [{id: 'constant-propagation', name: 'Constant Propagation'}, {
-        id: 'liveness-instructions',
-        name: 'Liveness (Single Instructions)'
-    }, {id: 'liveness-basic-blocks', name: 'Liveness (Basic Blocks)'}, {
-        id: 'reaching-definitions',
-        name: 'Reaching Definitions'
-    },];
+    const flowAlgorithms = [
+        {id: 'constant-propagation', name: 'Constant Propagation'},
+        {id: 'liveness-instructions', name: 'Liveness (Single Instructions)'},
+        {id: 'liveness-basic-blocks', name: 'Liveness (Basic Blocks)'},
+        {id: 'reaching-definitions', name: 'Reaching Definitions'},
+    ];
 
-    return (<>
+    return (
+        <>
             {/* Toggle Button - Always visible */}
             <div
                 className="position-fixed bg-primary text-white d-flex align-items-center justify-content-center"
@@ -48,43 +49,49 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
             <div
                 className={`bg-light border-end position-relative ${isVisible ? '' : 'd-none'}`}
                 style={{
-                    width: '280px', minWidth: '280px', transition: 'transform 0.3s ease'
+                    width: '280px',
+                    minWidth: '280px',
+                    transition: 'transform 0.3s ease'
                 }}
             >
-                <div className="p-3 h-100 d-flex flex-column">
+                <Container className="p-3 h-100 d-flex flex-column">
                     {/* Back Button */}
-                    <button
-                        className="btn btn-outline-secondary mb-4 w-100"
+                    <Button
+                        variant="outline-secondary"
+                        className="mb-4 w-100"
                         onClick={onBackToWelcome}
                     >
                         ← Zurück zur Startseite
-                    </button>
+                    </Button>
 
                     {/* Algorithm Selection */}
                     <div className="mb-4">
                         <h5 className="text-muted mb-3">Flowalgorithmen:</h5>
-                        <div className="d-grid gap-2">
-                            {flowAlgorithms.map((algorithm) => (<button
+                        <Stack gap={2}>
+                            {flowAlgorithms.map((algorithm) => (
+                                <Button
                                     key={algorithm.id}
-                                    className={`btn text-start ${selectedAlgorithm === algorithm.id ? 'btn-primary' : 'btn-outline-primary'}`}
+                                    variant={selectedAlgorithm === algorithm.id ? 'primary' : 'outline-primary'}
+                                    className="text-start"
                                     onClick={() => onAlgorithmSelect(algorithm.id)}
                                 >
                                     {algorithm.name}
-                                </button>))}
-                        </div>
+                                </Button>
+                            ))}
+                        </Stack>
                     </div>
-
 
                     {/* Info Section */}
                     <div className="mt-auto">
-                        <div className="alert alert-info">
+                        <Alert variant="info">
                             <small>
                                 <strong>Tipp:</strong> Wählen Sie einen Algorithmus aus, um die Visualisierung zu
                                 starten.
                             </small>
-                        </div>
+                        </Alert>
                     </div>
-                </div>
+                </Container>
             </div>
-        </>);
+        </>
+    );
 };
