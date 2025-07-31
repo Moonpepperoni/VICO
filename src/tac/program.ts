@@ -6,7 +6,11 @@ import {
     TacCollectiveError,
     type TacError
 } from "./tac-errors.ts";
+import {TacParser} from "./parser.ts";
 
+export function readProgramFromText(text : string) {
+    return TacProgram.fromParsedInstructions(new TacParser(text).parseTac());
+}
 
 // for now this step only verifies that all labels are correct, but this can be changed in the future
 function verifyTac(instructions: Map<number, TacInstruction>): {
