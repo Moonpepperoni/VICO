@@ -1,11 +1,3 @@
-export class UnexpectedEndOfInstructionError extends Error {
-
-}
-
-export class UnexpectedTokenError extends Error {
-
-}
-
 export const DebugLine = Symbol.for('line');
 
 export type TacInstruction =
@@ -34,6 +26,8 @@ export type RelationOperator = "==" | "<=" | ">=" | "<" | ">" | "!=";
 export type BinaryArithmaticOperator = "+" | "-" | "*" | "/" | "%";
 
 export type BinaryOperator = RelationOperator | BinaryArithmaticOperator;
+
+export type InstructionType = 'jump' | 'ifWithOperator' | 'ifSingleOperand' | 'ifFalse' | 'copy' | 'assignBinary' | 'assignUnary';
 
 abstract class BaseInstruction {
     readonly label?: string;
@@ -170,13 +164,12 @@ export class UnaryAssignInstruction extends BaseInstruction {
     }
 }
 
-
 export function tryBinaryArithmeticOperatorFromSymbol(symbol: string): BinaryArithmaticOperator {
     const valid = ["+", "-", "*", "/", "%"];
     if (valid.includes(symbol)) {
         return symbol as BinaryArithmaticOperator;
     }
-    throw new Error(`symbol ${symbol} is not a binary arithmetic operator expected one of ${valid}`);
+    throw new OperatorConversionError(symbol, "binary arithmetic");
 }
 
 export function tryRelationOperatorFromSymbol(symbol: string): RelationOperator {
@@ -184,7 +177,7 @@ export function tryRelationOperatorFromSymbol(symbol: string): RelationOperator 
     if (valid.includes(symbol)) {
         return symbol as RelationOperator;
     }
-    throw new Error(`symbol ${symbol} is not a binary relation operator expected one of ${valid}`);
+    throw new OperatorConversionError(symbol, "relation");
 }
 
 export function tryBinaryOperatorFromSymbol(symbol: string): BinaryOperator {
@@ -192,7 +185,7 @@ export function tryBinaryOperatorFromSymbol(symbol: string): BinaryOperator {
     if (valid.includes(symbol)) {
         return symbol as BinaryOperator;
     }
-    throw new Error(`symbol ${symbol} is not a binary operator expected one of ${valid}`);
+    throw new OperatorConversionError(symbol, "binary");
 }
 
 export function tryUnaryOperatorFromSymbol(symbol: string): UnaryOperator {
@@ -200,5 +193,17 @@ export function tryUnaryOperatorFromSymbol(symbol: string): UnaryOperator {
     if (valid.includes(symbol)) {
         return symbol as UnaryOperator;
     }
-    throw new Error(`symbol ${symbol} is not a unary operator expected one of ${valid}`);
+    throw new OperatorConversionError(symbol, "unary");
+}
+
+export class OperatorConversionError extends Error {
+    symbol: string;
+    expectedType: string;
+
+    constructor(symbol: string, expectedType: string) {
+        super(`symbol '${symbol}' is not a valid ${expectedType} operator`);
+        this.name = "OperatorConversionError";
+        this.symbol = symbol;
+        this.expectedType = expectedType;
+    }
 }

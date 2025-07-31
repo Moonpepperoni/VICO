@@ -275,3 +275,152 @@ if c goto HELLO`;
     expect(result[1][DebugLine]).toBe(2);
     expect(result[2][DebugLine]).toBe(3);
 })
+
+
+test('should throw error when goto is missing a target label', () => {
+    expect(() => {
+        new TacParser('goto').parseTac();
+    }).toThrowError(/expected.*label/);
+});
+
+test('should throw error when if statement is incomplete', () => {
+    expect(() => {
+        new TacParser('if a').parseTac();
+    }).toThrowError(/instruction ended/);
+});
+
+test('should throw error when if statement has no goto', () => {
+    expect(() => {
+        new TacParser('if a == b').parseTac();
+    }).toThrowError(/expected.*goto/);
+});
+
+test('should throw error when ifFalse statement is incomplete', () => {
+    expect(() => {
+        new TacParser('ifFalse a').parseTac();
+    }).toThrowError(/expected.*goto/);
+});
+
+test('should throw error when assignment is missing right side', () => {
+    expect(() => {
+        new TacParser('a =').parseTac();
+    }).toThrowError(/instruction ended/);
+});
+
+test('should throw error when assignment has incomplete binary operation', () => {
+    expect(() => {
+        new TacParser('a = b +').parseTac();
+    }).toThrowError(/instruction ended/);
+});
+
+test('should throw error when assignment has incomplete unary operation', () => {
+    expect(() => {
+        new TacParser('a = -').parseTac();
+    }).toThrowError(/instruction ended/);
+});
+
+test('should throw error when label is used without colon', () => {
+    expect(() => {
+        new TacParser('LABEL goto TARGET').parseTac();
+    }).toThrowError(/expected.*:/);
+});
+
+test('should throw error when binary operator is invalid', () => {
+    expect(() => {
+        new TacParser('a = b ! c').parseTac();
+    }).toThrowError(/! is not a valid/);
+});
+
+test('should throw error when relation operator is invalid in if statement', () => {
+    expect(() => {
+        new TacParser('if a + b goto LABEL').parseTac();
+    }).toThrowError(/\+ is not a valid/);
+});
+
+test('should throw error when using integer where identifier is required', () => {
+    expect(() => {
+        new TacParser('ifFalse 123 goto LABEL').parseTac();
+    }).toThrowError(/expected.*identifier/);
+});
+
+test('should throw error when if statement uses integer as single operand', () => {
+    expect(() => {
+        new TacParser('if 123 goto LABEL').parseTac();
+    }).toThrowError(/expected.*identifier/);
+});
+
+test('should throw collective error for multiple syntax errors in one input', () => {
+    const input = `a = b +
+c = 
+if d ! e goto LABEL`;
+
+    expect(() => {
+        new TacParser(input).parseTac();
+    }).toThrowError(/not valid/);
+});
+
+test('should throw error when parsing missing operand in binary operation', () => {
+    expect(() => {
+        new TacParser('a = + b').parseTac();
+    }).toThrowError(/\+ is not a valid/);
+});
+
+test('should throw error for incomplete label declaration', () => {
+    expect(() => {
+        new TacParser('LABEL:').parseTac();
+    }).toThrowError(/instruction ended/);
+});
+
+test('should throw error for invalid token in operand position', () => {
+    expect(() => {
+        new TacParser('a = goto').parseTac();
+    }).toThrowError(/expected.*identifier.*integer_literal/);
+});
+
+test('should throw error when trying to use identifier as label', () => {
+    expect(() => {
+        new TacParser('invalidlabel: goto TARGET').parseTac();
+    }).toThrowError(/expected.*=/);
+});
+
+test('should throw error when trying to use integer as label', () => {
+    expect(() => {
+        new TacParser('123: goto TARGET').parseTac();
+    }).toThrowError(/got "integer_literal"/);
+});
+
+test('should throw error when using unsupported symbol in if condition', () => {
+    expect(() => {
+        new TacParser('if a ! b goto LABEL').parseTac();
+    }).toThrowError(/! is not a valid/);
+});
+
+test('should throw error when using unsupported symbol in assignment', () => {
+    expect(() => {
+        new TacParser('a = b ! c').parseTac();
+    }).toThrowError(/! is not a valid/);
+});
+
+test('should throw error when if condition uses invalid combination', () => {
+    expect(() => {
+        new TacParser('if 1 goto LABEL').parseTac();
+    }).toThrowError(/expected.*identifier/);
+});
+
+test('should throw error when missing goto after if condition', () => {
+    expect(() => {
+        new TacParser('if a == b LABEL').parseTac();
+    }).toThrowError(/expected.*goto/);
+});
+
+test('should throw error when missing target after goto', () => {
+    expect(() => {
+        new TacParser('if a == b goto').parseTac();
+    }).toThrowError(/expected.*label/);
+});
+
+test('should throw error when using identifier in place of label', () => {
+    expect(() => {
+        new TacParser('if a == b goto somevar').parseTac();
+    }).toThrowError(/expected.*label/);
+});

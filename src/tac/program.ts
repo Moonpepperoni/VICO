@@ -1,5 +1,11 @@
 import {DebugLine, type TacInstruction} from "./parser-types.ts";
 import {LabelTable} from "./label-table.ts";
+import {
+    LabelAlreadyDefinedError,
+    LabelNotDefinedError,
+    TacCollectiveError,
+    type TacError
+} from "./tac-errors.ts";
 
 
 // for now this step only verifies that all labels are correct, but this can be changed in the future
@@ -7,19 +13,19 @@ function verifyTac(instructions: Map<number, TacInstruction>): {
     verifiedInstructions: Map<number, TacInstruction>,
     labelTable: LabelTable
 } {
-    const allErrors: Array<ProgramVerificationError> = [];
+    const allErrors: Array<TacError> = [];
     const {table, errors: fillErrors} = fillLabelTable(instructions);
     allErrors.push(...fillErrors);
     allErrors.push(...verifyLabelUsage(instructions, table));
     if (allErrors.length !== 0) {
-        throw new ProgramCollectiveError(...allErrors);
+        throw new TacCollectiveError(...allErrors);
     }
     return {verifiedInstructions: instructions, labelTable: table};
 }
 
 function fillLabelTable(instructions: Map<number, TacInstruction>): {
     table: LabelTable,
-    errors: Array<ProgramVerificationError>
+    errors: Array<TacError>
 } {
     const errors = [];
     const labelTable = new LabelTable();
@@ -27,7 +33,7 @@ function fillLabelTable(instructions: Map<number, TacInstruction>): {
         const label = instruction.label;
         if (label === undefined) continue;
         if (labelTable.getInstructionIdFromLabel(label) !== undefined) {
-            errors.push(new LabelAlreadyDefinedError(label, instruction));
+            errors.push(new LabelAlreadyDefinedError(label, instruction[DebugLine]));
             continue;
         }
         labelTable.addNewInstruction(label, id);
@@ -35,7 +41,7 @@ function fillLabelTable(instructions: Map<number, TacInstruction>): {
     return {table: labelTable, errors};
 }
 
-function verifyLabelUsage(instructions: Map<number, TacInstruction>, labelTable: LabelTable): Array<ProgramVerificationError> {
+function verifyLabelUsage(instructions: Map<number, TacInstruction>, labelTable: LabelTable): Array<TacError> {
     const errors = [];
     for (const instruction of instructions.values()) {
         switch (instruction.kind) {
@@ -44,7 +50,7 @@ function verifyLabelUsage(instructions: Map<number, TacInstruction>, labelTable:
             case "ifWithOperator":
             case "ifSingleOperand": {
                 const target = instruction.jumpLabel;
-                if (labelTable.getInstructionIdFromLabel(target) === undefined) errors.push(new LabelNotDefinedError(target, instruction));
+                if (labelTable.getInstructionIdFromLabel(target) === undefined) errors.push(new LabelNotDefinedError(target, instruction[DebugLine]));
                 break;
             }
         }
@@ -171,42 +177,3 @@ function countingGenerator(start: number) {
     return () => start++;
 }
 
-export class ProgramCollectiveError extends Error {
-    readonly errors: Array<ProgramVerificationError>;
-
-    constructor(...errors: Array<ProgramVerificationError>) {
-        super(`the submitted program is not valid, found ${errors.length} problem${errors.length > 1 ? 's' : ''}:
-${errors.map(v => v.message).join('\n')}`);
-        this.errors = errors;
-    }
-
-}
-
-export class ProgramVerificationError extends Error {
-    readonly line: number;
-    readonly reason:string;
-    constructor(reason: string, instruction: TacInstruction) {
-        super(`error on line ${instruction[DebugLine]}: ${reason}`);
-        this.name = "ProgramVerificationError"
-        this.line = instruction[DebugLine];
-        this.reason = reason;
-    }
-}
-
-export class LabelNotDefinedError extends ProgramVerificationError {
-
-    constructor(label: string, instruction: TacInstruction) {
-        const reason = `the label ${label} is never defined`;
-        super(reason, instruction);
-        this.name = "LabelNotDefinedError";
-    }
-}
-
-export class LabelAlreadyDefinedError extends ProgramVerificationError {
-
-    constructor(label: string, instruction: TacInstruction) {
-        const reason = `the label ${label} is already defined`;
-        super(reason, instruction);
-        this.name = "LabelDefinedMultipleTimes";
-    }
-}

@@ -1,6 +1,8 @@
 // TODO: refactor to allow no space between certain tokens
 // this will most likely need a complete rewrite because we use the fact that we can split this up into tokens at spaces
 
+import {UnsupportedTokenError} from "./tac-errors.ts";
+
 export function tokenizeString(input: string): Array<Token> {
     const tokens: Array<Token> = [];
     const parts = input.split(/(?:\r\n|\n)+/).map(l => l.trim()).filter(l => l !== "");
@@ -39,13 +41,10 @@ function readSingleToken(rawToken: string, line: number): Token {
     } else if (IDENT_REGEX.test(rawToken)) {
         return { kind: 'identifier', val: rawToken, line };
     } else {
-        throw UnexpectedTokenError(rawToken, line);
+        throw new UnsupportedTokenError(rawToken, line);
     }
 }
 
-function UnexpectedTokenError(rawToken: string, line: number): Error {
-    return new Error(`error on line ${line} found the token "${rawToken}", which is not supported`);
-}
 
 export type TokenVal = { line: number }
 
