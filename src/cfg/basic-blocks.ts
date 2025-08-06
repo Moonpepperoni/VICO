@@ -64,12 +64,24 @@ export class BasicBlockControlFlowGraph implements ControlFlowGraph {
         return [this.entryId, this.exitId, ...[...this.basicBlocks.values()].map(b => b.blockLeader)];
     }
 
+    get dataNodeIds(): Array<number> {
+        return [...this.basicBlocks.keys()];
+    }
+
     getNodeSuccessors(nodeId: number): Set<number> | undefined {
         return this.successors.get(nodeId);
     }
 
     getNodePredecessors(nodeId: number): Set<number> | undefined {
         return this.predecessors.get(nodeId);
+    }
+
+    getAllSuccessors() : Map<number, Set<number>> {
+        return this.successors;
+    }
+
+    getAllPredecessors() : Map<number, Set<number>> {
+        return this.predecessors;
     }
 
     getNodeInstructions(nodeId: number): Array<TacInstruction> {

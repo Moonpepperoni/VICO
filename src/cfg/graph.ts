@@ -4,6 +4,7 @@ export interface ControlFlowGraph {
     entryId: number;
     nodeIds: Array<number>;
     exitId: number;
+    dataNodeIds: Array<number>;
 
     getNodePredecessors(nodeId: number): Set<number> | undefined;
 
@@ -12,6 +13,10 @@ export interface ControlFlowGraph {
     getNodeInstructions(nodeId: number): Array<TacInstruction> | undefined;
 
     isBackEdge(from: number, to: number): boolean;
+
+    getAllSuccessors() : Map<number, Set<number>>;
+
+    getAllPredecessors() : Map<number, Set<number>>;
 }
 
 
