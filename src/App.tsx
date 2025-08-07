@@ -3,6 +3,9 @@ import {TopBar} from './TopBar';
 import {WelcomePage} from './WelcomePage';
 import {AnalysisPage} from './AnalysisPage';
 import 'bootstrap/dist/css/bootstrap.css'
+import {enableMapSet} from "immer";
+
+enableMapSet();
 
 interface FileData {
     name: string;

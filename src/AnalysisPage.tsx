@@ -1,21 +1,23 @@
-import React, {useState, useCallback, useRef, useEffect} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AlgorithmMenu} from './AlgorithmMenu';
 import {FlowVisualisationArea} from './FlowVisualisationArea.tsx';
 import {FileContentArea} from "./FileContentArea.tsx";
 import {TacCollectiveError, type TacError} from "./tac/tac-errors.ts";
 import {readProgramFromText, TacProgram} from "./tac/program.ts";
+import type {FlowAlgorithm} from "./service/flow-service.ts";
 
+// TODO: integrate ReactFlow here and build the custom nodes
 export const AnalysisPage: React.FC<{
     fileName: string;
     fileContent: string;
     onBackToWelcome: () => void
 }> = ({fileName, fileContent: initialFileContent, onBackToWelcome}) => {
     const [isMenuVisible, setIsMenuVisible] = useState(true);
-    const [selectedAlgorithm, setSelectedAlgorithm] = useState<string | null>(null);
+    const [selectedAlgorithm, setSelectedAlgorithm] = useState<FlowAlgorithm | null>(null);
     const [fileContent, setFileContent] = useState(initialFileContent);
     const [programErrors, setProgramErrors] = useState<Array<TacError>>([]);
     const hasUnsavedChanges = useRef(false);
-    const program = useRef<TacProgram|undefined>(undefined);
+    const program = useRef<TacProgram | undefined>(undefined);
 
     useEffect(() => {
         try {
@@ -38,7 +40,7 @@ export const AnalysisPage: React.FC<{
         hasUnsavedChanges.current = true;
     }
 
-    const handleAlgorithmSelect = (algorithm: string) => {
+    const handleAlgorithmSelect = (algorithm: FlowAlgorithm) => {
         setSelectedAlgorithm(algorithm);
     }
 
@@ -61,11 +63,16 @@ export const AnalysisPage: React.FC<{
         {/* Main Content Area */}
         <div className="flex-grow-1 d-flex">
             {/* Visualization Area */}
-            {selectedAlgorithm ? (
-                <FlowVisualisationArea
-                    fileName={fileName}
-                    fileContent={fileContent}
-                />
+            {selectedAlgorithm && program.current ? (
+                    <FlowVisualisationArea
+                        program={program.current}
+                        selectedAlgorithm={selectedAlgorithm}
+                        onEndRequest={() => {
+                            setSelectedAlgorithm(null);
+                            setFileContent(initialFileContent);
+                            setProgramErrors([]);
+                        }}
+                    />
             ) : (
                 <FileContentArea
                     fileContent={fileContent}

@@ -12,7 +12,9 @@
     },
     "dependencies": {
         "@uiw/react-codemirror": "^4.24.2",
+        "@xyflow/react": "^12.8.2",
         "bootstrap": "^5.3.7",
+        "elkjs": "^0.10.0",
         "immer": "^10.1.1",
         "react": "^19.1.0",
         "react-bootstrap": "^2.10.10",

@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, Button, ButtonGroup, Alert } from 'react-bootstrap';
+import {Alert, Button, ButtonGroup, Card} from 'react-bootstrap';
 
 interface ControlSidebarProps {
     selectedAlgorithm: string | null;
@@ -7,6 +7,8 @@ interface ControlSidebarProps {
     handlePrevious: () => void;
     handleReset: () => void;
     explanationText: string;
+    handleStop: () => void;
+    handleEnd: () => void;
 }
 
 export const ControlSidebar: React.FC<ControlSidebarProps> = ({
@@ -14,12 +16,14 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
                                                                   explanationText,
                                                                   handlePrevious,
                                                                   handleReset,
-                                                                  handleNext
+                                                                  handleNext,
+                                                                  handleStop,
+    handleEnd,
                                                               }) => {
     return (
         <div
             className="bg-light border-start d-flex flex-column"
-            style={{ width: '320px', minWidth: '320px' }}
+            style={{width: '320px', minWidth: '320px'}}
         >
             {/* Step Explanation Area */}
             <div className="flex-grow-1 p-3 border-bottom">
@@ -48,14 +52,14 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
                                 onClick={handlePrevious}
                                 disabled={!selectedAlgorithm}
                             >
-                                ⏮ Zurück
+                                ⏮ Vorheriger
                             </Button>
                             <Button
                                 variant="outline-primary"
                                 onClick={handleNext}
                                 disabled={true}
                             >
-                                Weiter ⏭
+                                Nächster ⏭
                             </Button>
                         </ButtonGroup>
                         <Button
@@ -63,7 +67,21 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
                             onClick={handleReset}
                             disabled={true}
                         >
-                            🔄 Reset
+                            🔄 Zum Anfang
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={handleEnd}
+                            disabled={true}
+                        >
+                            Zum Ende
+                        </Button>
+                        <Button
+                            variant="danger"
+                            onClick={handleStop}
+                            disabled={true}
+                        >
+                            Beenden
                         </Button>
                     </div>
                 </div>
@@ -71,7 +89,7 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
                 {/* Algorithm Info */}
                 <Alert variant="info">
                     <small>
-                        <strong>Aktiver Algorithmus:</strong><br />
+                        <strong>Aktiver Algorithmus:</strong><br/>
                         {selectedAlgorithm === 'dead-code' && 'Dead Code Elimination'}
                         {selectedAlgorithm === 'constant-folding' && 'Constant Folding'}
                         {selectedAlgorithm === 'common-subexpression' && 'Common Subexpression Elimination'}
