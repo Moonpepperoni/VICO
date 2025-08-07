@@ -8,7 +8,7 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
 
     // we want the reverse topological order, due to the simple structure of the cfgs, we can use bfs here
     const iterationOrder = getReverseTopologicalOrder(cfg.entryId, cfg);
-    yield convertToLivenessState('initial state', cfg.nodes, defSets, useSets, inSets, outSets);
+    yield convertToLivenessState(undefined, 'Initial werden alle Use und Def-Sets basierend auf den Instruktionen gesetzt', cfg.nodes, defSets, useSets, inSets, outSets);
 
     let changed = true;
     while (changed) {
@@ -40,10 +40,10 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
             });
             const newIn = inSets.getValueRaw(currentNodeId)!;
             if (!livenessSetEqual(oldIn, newIn)) changed = true;
-            yield convertToLivenessState('dont know yet', cfg.nodes, defSets, useSets, inSets, outSets);
+            yield convertToLivenessState(currentNodeId, 'dont know yet', cfg.nodes, defSets, useSets, inSets, outSets);
         }
     }
-    yield convertToLivenessState('no more change', cfg.nodes, defSets, useSets, inSets, outSets);
+    yield convertToLivenessState(undefined, 'Der Algorithmus ist zu Ende, da es keine weiteren Änderungen gab', cfg.nodes, defSets, useSets, inSets, outSets);
 }
 
 function convertToObserveStores(cfg: LivenessCFG, liveOut: Set<string>) {
@@ -64,7 +64,7 @@ function convertToObserveStores(cfg: LivenessCFG, liveOut: Set<string>) {
 
 type LivenessDataStore = FlowObserveStore<Set<string>>;
 
-function convertToLivenessState(reason: string, nodes: Array<number>, defSets: LivenessDataStore, useSets: LivenessDataStore, inSets: LivenessDataStore, outSets: LivenessDataStore): LivenessState {
+function convertToLivenessState(currentNodeId: number | undefined, reason: string, nodes: Array<number>, defSets: LivenessDataStore, useSets: LivenessDataStore, inSets: LivenessDataStore, outSets: LivenessDataStore): LivenessState {
     const stateData = new Map<number, LivenessNodeData>();
     for (const node of nodes) {
         const defSet = extractDataFromStore(defSets, node);
@@ -77,7 +77,7 @@ function convertToLivenessState(reason: string, nodes: Array<number>, defSets: L
     useSets.resetObserve();
     inSets.resetObserve();
     outSets.resetObserve();
-    return {reason, state: stateData};
+    return {currentNodeId, reason, state: stateData};
 }
 
 function extractDataFromStore(store: LivenessDataStore, nodeId: number): LivenessSetData {
@@ -107,7 +107,7 @@ function livenessSetEqual(s1: Set<string>, s2: Set<string>): boolean {
     return s1.size == s2.size && [...s1].every(v => s2.has(v));
 }
 
-export type LivenessState = { reason: string, state: Map<number, LivenessNodeData> };
+export type LivenessState = { currentNodeId: number | undefined, reason: string, state: Map<number, LivenessNodeData> };
 
 export type LivenessNodeData = {
     defSet: LivenessSetData,
