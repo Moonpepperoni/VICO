@@ -188,8 +188,6 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
                             <Button variant="danger" onClick={onEndRequest}>
                                 Beenden
                             </Button></>}
-
-
                     </div>
                 </div>
 
@@ -199,6 +197,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
                         <strong>Aktiver Algorithmus:</strong><br/>
                         {selectedAlgorithm === 'liveness-single-instruction' && 'Liveness (Single Instructions)'}
                         {selectedAlgorithm === 'liveness-basic-blocks' && 'Liveness (Basic Blocks)'}
+                        {selectedAlgorithm === 'reaching-definitions-basic-blocks' && 'Reaching Definitions (Basic Blocks)'}
                         {selectedAlgorithm === null && 'Keiner ausgewählt'}
                     </small>
                 </Alert>
