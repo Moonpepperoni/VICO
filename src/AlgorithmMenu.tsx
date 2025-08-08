@@ -20,7 +20,8 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
 
     const flowAlgorithms : Array<{id: FlowAlgorithm, name: string}> = [
         {id: 'liveness-basic-blocks', name: 'Liveness (Basic Blocks)'},
-        {id: 'liveness-single-instruction', name: "Liveness (Single Instructions)"}
+        {id: 'liveness-single-instruction', name: "Liveness (Single Instructions)"},
+        {id: 'reaching-definitions-basic-blocks', name: 'Reaching Definitions (Basic Blocks)'},
     ];
 
     return (

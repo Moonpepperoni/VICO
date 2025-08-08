@@ -10,8 +10,13 @@ import {
 import type {ControlFlowGraph} from "../cfg/graph.ts";
 import {SingleInstructionGraph} from "../cfg/single-instruction.ts";
 import {BasicBlockControlFlowGraph} from "../cfg/basic-blocks.ts";
+import {
+    extractGenAndKillFromBasicBlocks, ReachingDefinitions,
+    type ReachingDefinitionsCFG,
+    type ReachingDefinitionsState
+} from "../flow/reaching-definitions.ts";
 
-export type FlowAlgorithm = "liveness-single-instruction" | "liveness-basic-blocks";
+export type FlowAlgorithm = "liveness-single-instruction" | "liveness-basic-blocks" | "reaching-definitions-basic-blocks";
 
 export type FlowServiceInitFunction<T> = (tacProgram: TacProgram, cacheSize: number) => {
     cfg: ControlFlowGraph,
@@ -26,6 +31,8 @@ export function getFlowServiceInstanceFor(tacProgram: TacProgram, algorithm: Flo
             return new LivenessSingleInstructionService(tacProgram);
         case "liveness-basic-blocks":
             return new LivenessBasicBlockService(tacProgram);
+            case "reaching-definitions-basic-blocks":
+            return new ReachingDefinitionsService(tacProgram);
         default: {
             const exhaustiveCheck: never = algorithm;
             throw new Error(`Unknown algorithm: ${exhaustiveCheck}`);
@@ -98,6 +105,89 @@ export class LivenessBasicBlockService extends FlowServiceBase<LivenessState> {
     }
 }
 
+function convertToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsState : ReachingDefinitionsState): FlowState {
+    const nodes = new Array<FlowNodeData>();
+    const edges = new Array<FlowEdgeData>();
+
+    for (const nodeId of cfg.nodeIds) {
+        const nodeData = reachingDefinitionsState.state.get(nodeId)!;
+        const instructions = cfg.getNodeInstructions(nodeId)?.map(i => i.toString()) ?? [];
+        const inSet: FlowValue = {
+            lookedAt: nodeData.inSet.lookedAt,
+            changed: nodeData.inSet.changed,
+            value: {type: 'string-set', data: nodeData.inSet.data}
+        };
+        const outSet: FlowValue = {
+            lookedAt: nodeData.outSet.lookedAt,
+            changed: nodeData.outSet.changed,
+            value: {type: 'string-set', data: nodeData.outSet.data}
+        };
+
+        if (nodeId === cfg.entryId) {
+            nodes.push({
+                isCurrent: reachingDefinitionsState.currentNodeId === nodeId,
+                id: nodeId,
+                kind: 'entry',
+                inValue: inSet,
+                outValue: outSet,
+            });
+            continue;
+        }
+
+        if (nodeId === cfg.exitId) {
+            nodes.push({
+                isCurrent: reachingDefinitionsState.currentNodeId === nodeId,
+                id: nodeId,
+                kind: 'exit',
+                inValue: inSet,
+                outValue: outSet,
+            });
+            continue;
+        }
+
+        const genSet: FlowValue = {
+            lookedAt: nodeData.genSet.lookedAt,
+            changed: nodeData.genSet.changed,
+            value: {type: 'string-set', data: nodeData.genSet.data}
+        };
+        const killSet: FlowValue = {
+            lookedAt: nodeData.killSet.lookedAt,
+            changed: nodeData.killSet.changed,
+            value: {type: 'string-set', data: nodeData.killSet.data}
+        };
+
+
+        const perNodeValues = new Map<string, FlowValue>([["gen", genSet], ["kill", killSet]]);
+
+        nodes.push({
+            isCurrent: reachingDefinitionsState.currentNodeId === nodeId,
+            kind: "node",
+            id: nodeId,
+            outValue: outSet,
+            inValue: inSet,
+            perNodeValues,
+            instructions,
+        });
+    }
+
+    for (const [src, targets] of cfg.getAllSuccessors()) {
+        targets.forEach(target => {
+            edges.push({src, target, isBackEdge: cfg.isBackEdge(src, target)});
+        });
+    }
+    return {
+        reason: reachingDefinitionsState.reason,
+        nodes,
+        edges,
+    }
+}
+
+export class ReachingDefinitionsService extends FlowServiceBase<ReachingDefinitionsState> {
+    constructor(tacProgram: TacProgram, cacheSize = 100) {
+        super(tacProgram, selectReachingDefinitionsForBasicBlocks, convertToFlowOut, cacheSize);
+    }
+}
+
 function selectLivenessForSingleInstructions(tacProgram: TacProgram, cacheSize: number): {
     cfg: ControlFlowGraph,
     cache: GeneratorCache<LivenessState>
@@ -134,6 +224,27 @@ function selectLivenessForBasicBlocks(tacProgram: TacProgram, cacheSize: number)
     return {cfg, cache: new GeneratorCache(LivenessAnalysis(livenessCFG, new Set()), cacheSize)};
 }
 
+function selectReachingDefinitionsForBasicBlocks(tacProgram: TacProgram, cacheSize: number): {
+    cfg: ControlFlowGraph,
+    cache: GeneratorCache<ReachingDefinitionsState>
+} {
+    const cfg = new BasicBlockControlFlowGraph(tacProgram);
+    const basicBlocks = new Map(cfg.dataNodeIds.map(id => [id, cfg.getNodeInstructions(id)!]));
+    const {genSets, killSets} = extractGenAndKillFromBasicBlocks(basicBlocks);
+
+    const reachingDefinitionsCFG: ReachingDefinitionsCFG = {
+        entryId: cfg.entryId,
+        exitId: cfg.exitId,
+        gen: genSets,
+        kill: killSets,
+        successors: cfg.getAllSuccessors(),
+        predecessors: cfg.getAllPredecessors(),
+        nodes: cfg.nodeIds,
+    }
+
+    return {cfg, cache: new GeneratorCache(ReachingDefinitions(reachingDefinitionsCFG), cacheSize)};
+}
+
 function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState): FlowState {
     const nodes = new Array<FlowNodeData>();
     const edges = new Array<FlowEdgeData>();
@@ -144,12 +255,12 @@ function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState):
         const inSet: FlowValue = {
             lookedAt: nodeData.inSet.lookedAt,
             changed: nodeData.inSet.changed,
-            value: {type: 'liveness', data: nodeData.inSet.data}
+            value: {type: 'string-set', data: nodeData.inSet.data}
         };
         const outSet: FlowValue = {
             lookedAt: nodeData.outSet.lookedAt,
             changed: nodeData.outSet.changed,
-            value: {type: 'liveness', data: nodeData.outSet.data}
+            value: {type: 'string-set', data: nodeData.outSet.data}
         };
 
         if (nodeId === cfg.entryId) {
@@ -177,12 +288,12 @@ function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState):
         const useSet: FlowValue = {
             lookedAt: nodeData.useSet.lookedAt,
             changed: nodeData.useSet.changed,
-            value: {type: 'liveness', data: nodeData.useSet.data}
+            value: {type: 'string-set', data: nodeData.useSet.data}
         };
         const defSet: FlowValue = {
             lookedAt: nodeData.defSet.lookedAt,
             changed: nodeData.defSet.changed,
-            value: {type: 'liveness', data: nodeData.defSet.data}
+            value: {type: 'string-set', data: nodeData.defSet.data}
         };
 
 
@@ -247,4 +358,4 @@ export type FlowEdgeData = { src: number, target: number, isBackEdge: boolean }
 
 export type FlowValue = { lookedAt: boolean, changed: boolean, value: FlowValueData }
 
-export type FlowValueData = { type: 'liveness', data: Set<string> }
+export type FlowValueData = { type: 'string-set', data: Set<string> }
