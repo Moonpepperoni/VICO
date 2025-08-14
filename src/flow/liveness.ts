@@ -8,7 +8,7 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
 
     // we want the reverse topological order, due to the simple structure of the cfgs, we can use bfs here
     const iterationOrder = getReverseTopologicalOrder(cfg.entryId, cfg);
-    yield convertToLivenessState(undefined, 'Initial werden alle Use und Def-Sets basierend auf den Instruktionen gesetzt', cfg.nodes, defSets, useSets, inSets, outSets);
+    yield convertToLivenessState(undefined, 'Initial werden alle Use- und Def-Mengen basierend auf den Instruktionen gesetzt', cfg.nodes, defSets, useSets, inSets, outSets);
 
     let changed = true;
     while (changed) {
@@ -28,6 +28,7 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
                     }
                 });
             });
+            yield convertToLivenessState(currentNodeId, 'Berechne neue Out-Menge durch Vereinigung der In-Menge, aller Vorgänger', cfg.nodes, defSets, useSets, inSets, outSets);
             // compute new inSet
             inSets.changeWith(currentNodeId, (prevSet) => {
                 // out = use [union] (out - def)
@@ -40,7 +41,7 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
             });
             const newIn = inSets.getValueRaw(currentNodeId)!;
             if (!livenessSetEqual(oldIn, newIn)) changed = true;
-            yield convertToLivenessState(currentNodeId, 'dont know yet', cfg.nodes, defSets, useSets, inSets, outSets);
+            yield convertToLivenessState(currentNodeId, 'Berechne neue In-Menge als Vereinigung aus der Use-Menge und der (Differenz aus Out-Menge und Def-Menge)', cfg.nodes, defSets, useSets, inSets, outSets);
         }
     }
     yield convertToLivenessState(undefined, 'Der Algorithmus ist zu Ende, da es keine weiteren Änderungen gab', cfg.nodes, defSets, useSets, inSets, outSets);

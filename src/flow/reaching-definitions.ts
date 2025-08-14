@@ -8,7 +8,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
 
     const iterationOrder = getTopologicalOrder(cfg.entryId, cfg);
 
-    yield convertToReachingDefinitionsState(undefined, 'Initial werden alle Gen- und Kill-Sets basierend auf den Instruktionen gesetzt', cfg.nodes, genSets, killSets, inSets, outSets);
+    yield convertToReachingDefinitionsState(undefined, 'Initial werden alle Gen- und Kill-Mengen basierend auf den Instruktionen gesetzt', cfg.nodes, genSets, killSets, inSets, outSets);
 
 
     let changed = true;
@@ -21,7 +21,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
             // compute new inSet
             inSets.changeWith(currentNodeId, (prevSet) => {
                 return produce(prevSet, (newSet) => {
-                    // take union over all successor inSets
+                    // take union over all predecessor outsets
                     const predecessors = cfg.predecessors.get(currentNodeId);
                     if (predecessors === undefined) return;
                     for (const predecessor of predecessors) {
@@ -29,9 +29,10 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
                     }
                 });
             });
+            yield convertToReachingDefinitionsState(currentNodeId, 'Berechne neue In-Menge als Vereinigung der Out-Mengen, aller Vorgängerknoten', cfg.nodes, genSets, killSets, inSets, outSets);
             // compute new outSet
             outSets.changeWith(currentNodeId, (prevSet) => {
-                // out = use [union] (out - def)
+                // out = gen [union] (in - kill)
                 return produce(prevSet, (newSet) => {
                     const inMinusKill = new Set([...inSets.getValue(currentNodeId)!].filter(v => !currentKillSet?.has(v)));
                     // union of the sets
@@ -42,7 +43,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
 
             const newIn = inSets.getValueRaw(currentNodeId)!;
             if (!genKillSetEqual(oldIn, newIn)) changed = true;
-            yield convertToReachingDefinitionsState(currentNodeId, 'dont know yet', cfg.nodes, genSets, killSets, inSets, outSets);
+            yield convertToReachingDefinitionsState(currentNodeId, 'Berechne die neue Out-Menge als Vereinigung der Gen-Menge mit der (Differenz aus In-Menge mit der Kill-Menge)', cfg.nodes, genSets, killSets, inSets, outSets);
         }
     }
     yield convertToReachingDefinitionsState(undefined, 'Der Algorithmus ist zu Ende, da es keine weiteren Änderungen gab', cfg.nodes, genSets, killSets, inSets, outSets);
