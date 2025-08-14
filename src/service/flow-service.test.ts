@@ -1,8 +1,10 @@
+
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
     getFlowServiceInstanceFor,
     LivenessSingleInstructionService,
     LivenessBasicBlockService,
+    ReachingDefinitionsService,
     type FlowService,
 } from './flow-service';
 import { TacParser } from '../tac/parser';
@@ -19,7 +21,7 @@ describe('FlowService Integration Tests', () => {
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
 
-            const service = getFlowServiceInstanceFor(tacProgram, 'liveness-single-instruction');
+            const service = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-single-instruction', liveOut: new Set() });
 
             expect(service).toBeInstanceOf(LivenessSingleInstructionService);
         });
@@ -29,9 +31,19 @@ describe('FlowService Integration Tests', () => {
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
 
-            const service = getFlowServiceInstanceFor(tacProgram, 'liveness-basic-blocks');
+            const service = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-basic-blocks', liveOut: new Set() });
 
             expect(service).toBeInstanceOf(LivenessBasicBlockService);
+        });
+
+        test('should return ReachingDefinitionsService for reaching-definitions-basic-blocks algorithm', () => {
+            const tacText = 'a = 1';
+            const tacInstructions = new TacParser(tacText).parseTac();
+            const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
+
+            const service = getFlowServiceInstanceFor(tacProgram, { kind: 'reaching-definitions-basic-blocks' });
+
+            expect(service).toBeInstanceOf(ReachingDefinitionsService);
         });
 
         test('should throw error for unknown algorithm', () => {
@@ -40,7 +52,7 @@ describe('FlowService Integration Tests', () => {
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
 
             // @ts-expect-error - intentionally passing invalid value
-            expect(() => getFlowServiceInstanceFor(tacProgram, 'unknown-algorithm')).toThrow('Unknown algorithm');
+            expect(() => getFlowServiceInstanceFor(tacProgram, { kind: 'unknown-algorithm' })).toThrow('Unknown algorithm');
         });
     });
 
@@ -55,7 +67,7 @@ describe('FlowService Integration Tests', () => {
       `;
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
-            service = getFlowServiceInstanceFor(tacProgram, 'liveness-single-instruction');
+            service = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-single-instruction', liveOut: new Set() });
         });
 
         test('should not have initial state', () => {
@@ -126,7 +138,7 @@ describe('FlowService Integration Tests', () => {
       `;
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
-            service = getFlowServiceInstanceFor(tacProgram, 'liveness-basic-blocks');
+            service = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-basic-blocks', liveOut: new Set() });
         });
 
         test('should correctly generate back edges', () => {
@@ -167,8 +179,8 @@ describe('FlowService Integration Tests', () => {
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
 
-            const singleService = getFlowServiceInstanceFor(tacProgram, 'liveness-single-instruction');
-            const blockService = getFlowServiceInstanceFor(tacProgram, 'liveness-basic-blocks');
+            const singleService = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-single-instruction', liveOut: new Set() });
+            const blockService = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-basic-blocks', liveOut: new Set() });
 
             singleService.advance();
             blockService.advance();
@@ -194,7 +206,7 @@ describe('FlowService Integration Tests', () => {
       `;
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
-            const service = getFlowServiceInstanceFor(tacProgram, 'liveness-single-instruction');
+            const service = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-single-instruction', liveOut: new Set() });
 
             // Advance to end state
             service.advanceToEnd();
@@ -232,7 +244,7 @@ describe('FlowService Integration Tests', () => {
       `;
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
-            const service = getFlowServiceInstanceFor(tacProgram, 'liveness-single-instruction');
+            const service = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-single-instruction', liveOut: new Set() });
 
             // Advance to end state
             service.advanceToEnd();
@@ -274,7 +286,7 @@ describe('FlowService Integration Tests', () => {
       `;
             const tacInstructions = new TacParser(tacText).parseTac();
             const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
-            const service = getFlowServiceInstanceFor(tacProgram, 'liveness-single-instruction');
+            const service = getFlowServiceInstanceFor(tacProgram, { kind: 'liveness-single-instruction', liveOut: new Set() });
 
             service.advance();
             const state = service.currentValue();
@@ -290,6 +302,42 @@ describe('FlowService Integration Tests', () => {
 
             // The IN set should be empty since it's unreachable
             expect(unreachableNode?.inValue.value.data.size).toBe(0);
+        });
+    });
+
+    describe('Reaching definitions analysis', () => {
+        test('should correctly analyze reaching definitions', () => {
+            const tacText = `
+        a = 1
+        b = a
+        a = b + 1
+        c = a + b
+      `;
+            const tacInstructions = new TacParser(tacText).parseTac();
+            const tacProgram = TacProgram.fromParsedInstructions(tacInstructions);
+            const service = getFlowServiceInstanceFor(tacProgram, { kind: 'reaching-definitions-basic-blocks' });
+
+            // Advance to end state
+            service.advanceToEnd();
+            const finalState = service.currentValue();
+
+            // Verify we have nodes in the result
+            expect(finalState?.nodes.length).toBeGreaterThan(0);
+            expect(finalState?.edges.length).toBeGreaterThan(0);
+
+            // Find a node that contains gen/kill information
+            const dataNode = finalState?.nodes.find(node =>
+                node.kind === 'node' &&
+                node.perNodeValues?.has('gen') &&
+                node.perNodeValues?.has('kill')
+            );
+
+            // Verify gen/kill sets exist
+            expect(dataNode).toBeDefined();
+            if (dataNode?.kind === 'node') {
+                expect(dataNode.perNodeValues.get('gen')).toBeDefined();
+                expect(dataNode.perNodeValues.get('kill')).toBeDefined();
+            }
         });
     });
 });

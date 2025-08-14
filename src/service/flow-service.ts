@@ -11,12 +11,16 @@ import type {ControlFlowGraph} from "../cfg/graph.ts";
 import {SingleInstructionGraph} from "../cfg/single-instruction.ts";
 import {BasicBlockControlFlowGraph} from "../cfg/basic-blocks.ts";
 import {
-    extractGenAndKillFromBasicBlocks, ReachingDefinitions,
+    extractGenAndKillFromBasicBlocks,
+    ReachingDefinitions,
     type ReachingDefinitionsCFG,
     type ReachingDefinitionsState
 } from "../flow/reaching-definitions.ts";
 
-export type FlowAlgorithm = "liveness-single-instruction" | "liveness-basic-blocks" | "reaching-definitions-basic-blocks";
+export type FlowAlgorithmSelector =
+    { kind: "liveness-single-instruction", liveOut: Set<string> }
+    | { kind: "liveness-basic-blocks", liveOut: Set<string> }
+    | { kind: "reaching-definitions-basic-blocks" };
 
 export type FlowServiceInitFunction<T> = (tacProgram: TacProgram, cacheSize: number) => {
     cfg: ControlFlowGraph,
@@ -25,13 +29,13 @@ export type FlowServiceInitFunction<T> = (tacProgram: TacProgram, cacheSize: num
 
 export type FlowConverterFunction<T> = (cfg: ControlFlowGraph, state: T) => FlowState;
 
-export function getFlowServiceInstanceFor(tacProgram: TacProgram, algorithm: FlowAlgorithm) : FlowService {
-    switch (algorithm) {
+export function getFlowServiceInstanceFor(tacProgram: TacProgram, algorithm: FlowAlgorithmSelector): FlowService {
+    switch (algorithm.kind) {
         case "liveness-single-instruction":
-            return new LivenessSingleInstructionService(tacProgram);
+            return new LivenessSingleInstructionService(tacProgram, algorithm.liveOut);
         case "liveness-basic-blocks":
-            return new LivenessBasicBlockService(tacProgram);
-            case "reaching-definitions-basic-blocks":
+            return new LivenessBasicBlockService(tacProgram, algorithm.liveOut);
+        case "reaching-definitions-basic-blocks":
             return new ReachingDefinitionsService(tacProgram);
         default: {
             const exhaustiveCheck: never = algorithm;
@@ -42,10 +46,15 @@ export function getFlowServiceInstanceFor(tacProgram: TacProgram, algorithm: Flo
 
 export interface FlowService {
     advance(): void;
+
     currentValue(): FlowState | undefined;
+
     previous(): void;
+
     hasNext(): boolean;
+
     hasPrevious(): boolean;
+
     advanceToEnd(): void;
 }
 
@@ -94,18 +103,18 @@ export class FlowServiceBase<T> {
 }
 
 export class LivenessSingleInstructionService extends FlowServiceBase<LivenessState> {
-    constructor(tacProgram: TacProgram, cacheSize = 100) {
-        super(tacProgram, selectLivenessForSingleInstructions, convertToLiveness, cacheSize);
+    constructor(tacProgram: TacProgram, liveOut: Set<string>, cacheSize = 100) {
+        super(tacProgram, selectLivenessForSingleInstructions(liveOut), convertToLiveness, cacheSize);
     }
 }
 
 export class LivenessBasicBlockService extends FlowServiceBase<LivenessState> {
-    constructor(tacProgram: TacProgram, cacheSize = 100) {
-        super(tacProgram, selectLivenessForBasicBlocks, convertToLiveness, cacheSize);
+    constructor(tacProgram: TacProgram, liveOut: Set<string>, cacheSize = 100) {
+        super(tacProgram, selectLivenessForBasicBlocks(liveOut), convertToLiveness, cacheSize);
     }
 }
 
-function convertToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsState : ReachingDefinitionsState): FlowState {
+function convertReachingToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsState: ReachingDefinitionsState): FlowState {
     const nodes = new Array<FlowNodeData>();
     const edges = new Array<FlowEdgeData>();
 
@@ -184,44 +193,43 @@ function convertToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsState : Reac
 
 export class ReachingDefinitionsService extends FlowServiceBase<ReachingDefinitionsState> {
     constructor(tacProgram: TacProgram, cacheSize = 100) {
-        super(tacProgram, selectReachingDefinitionsForBasicBlocks, convertToFlowOut, cacheSize);
+        super(tacProgram, selectReachingDefinitionsForBasicBlocks, convertReachingToFlowOut, cacheSize);
     }
 }
 
-function selectLivenessForSingleInstructions(tacProgram: TacProgram, cacheSize: number): {
-    cfg: ControlFlowGraph,
-    cache: GeneratorCache<LivenessState>
-} {
-    const cfg = new SingleInstructionGraph(tacProgram);
-    const {use, def} = extractUseAndDefFromInstructions(
-        new Map(cfg.dataNodeIds
-            .map(id => [id, cfg.getNodeInstructions(id)![0]])));
-    const livenessCFG: LivenessCFG = {
-        use, def,
-        entryId: cfg.entryId,
-        exitId: cfg.exitId,
-        nodes: cfg.nodeIds,
-        edges: cfg.getAllSuccessors(),
+function selectLivenessForSingleInstructions(liveOut: Set<string>) {
+    return (tacProgram: TacProgram, cacheSize: number) => {
+        const cfg = new SingleInstructionGraph(tacProgram);
+
+        const {use, def} = extractUseAndDefFromInstructions(
+            new Map(cfg.dataNodeIds
+                .map(id => [id, cfg.getNodeInstructions(id)![0]])));
+        const livenessCFG: LivenessCFG = {
+            use, def,
+            entryId: cfg.entryId,
+            exitId: cfg.exitId,
+            nodes: cfg.nodeIds,
+            edges: cfg.getAllSuccessors(),
+        }
+        return {cfg, cache: new GeneratorCache(LivenessAnalysis(livenessCFG, liveOut), cacheSize)};
     }
-    return {cfg, cache: new GeneratorCache(LivenessAnalysis(livenessCFG, new Set()), cacheSize)};
 }
 
-function selectLivenessForBasicBlocks(tacProgram: TacProgram, cacheSize: number): {
-    cfg: ControlFlowGraph,
-    cache: GeneratorCache<LivenessState>
-} {
-    const cfg = new BasicBlockControlFlowGraph(tacProgram);
-    const basicBlocks = new Map(cfg.dataNodeIds.map(id => [id, cfg.getNodeInstructions(id)!]));
-    const {use, def} = extractUseAndDefFromBasicBlocks(basicBlocks);
+function selectLivenessForBasicBlocks(liveOut: Set<string>) {
+    return (tacProgram: TacProgram, cacheSize: number) => {
+        const cfg = new BasicBlockControlFlowGraph(tacProgram);
+        const basicBlocks = new Map(cfg.dataNodeIds.map(id => [id, cfg.getNodeInstructions(id)!]));
+        const {use, def} = extractUseAndDefFromBasicBlocks(basicBlocks);
 
-    const livenessCFG: LivenessCFG = {
-        use, def,
-        entryId: cfg.entryId,
-        exitId: cfg.exitId,
-        nodes: cfg.nodeIds,
-        edges: cfg.getAllSuccessors(),
+        const livenessCFG: LivenessCFG = {
+            use, def,
+            entryId: cfg.entryId,
+            exitId: cfg.exitId,
+            nodes: cfg.nodeIds,
+            edges: cfg.getAllSuccessors(),
+        };
+        return {cfg, cache: new GeneratorCache(LivenessAnalysis(livenessCFG, liveOut), cacheSize)};
     };
-    return {cfg, cache: new GeneratorCache(LivenessAnalysis(livenessCFG, new Set()), cacheSize)};
 }
 
 function selectReachingDefinitionsForBasicBlocks(tacProgram: TacProgram, cacheSize: number): {
@@ -244,6 +252,7 @@ function selectReachingDefinitionsForBasicBlocks(tacProgram: TacProgram, cacheSi
 
     return {cfg, cache: new GeneratorCache(ReachingDefinitions(reachingDefinitionsCFG), cacheSize)};
 }
+
 
 function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState): FlowState {
     const nodes = new Array<FlowNodeData>();
@@ -297,7 +306,6 @@ function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState):
         };
 
 
-
         const perNodeValues = new Map<string, FlowValue>([["use", useSet], ["def", defSet]]);
 
         nodes.push({
@@ -311,8 +319,6 @@ function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState):
         });
 
     }
-
-
 
 
     for (const [src, targets] of cfg.getAllSuccessors()) {
@@ -331,17 +337,17 @@ export type FlowState = {
     reason: string,
     nodes: Array<FlowNodeData>,
     edges: Array<FlowEdgeData>,
-}
+};
 
 export type FlowDataNodeData = {
-    isCurrent : boolean,
+    isCurrent: boolean,
     id: number,
     kind: "node",
     instructions: Array<string>,
     inValue: FlowValue,
     outValue: FlowValue,
     perNodeValues: Map<string, FlowValue>
-}
+};
 
 export type FlowEntryExitData = {
     id: number,
@@ -349,13 +355,12 @@ export type FlowEntryExitData = {
     kind: "entry" | "exit",
     inValue: FlowValue,
     outValue: FlowValue,
-}
-
+};
 
 export type FlowNodeData = FlowDataNodeData | FlowEntryExitData;
 
-export type FlowEdgeData = { src: number, target: number, isBackEdge: boolean }
+export type FlowEdgeData = { src: number, target: number, isBackEdge: boolean };
 
-export type FlowValue = { lookedAt: boolean, changed: boolean, value: FlowValueData }
+export type FlowValue = { lookedAt: boolean, changed: boolean, value: FlowValueData };
 
-export type FlowValueData = { type: 'string-set', data: Set<string> }
+export type FlowValueData = { type: 'string-set', data: Set<string> };

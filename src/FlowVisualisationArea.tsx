@@ -3,18 +3,19 @@ import {FlowGraph} from "./FlowGraph.tsx";
 import type {TacProgram} from "./tac/program.ts";
 import {applyNodeChanges, type Edge, type Node, type NodeChange, ReactFlowProvider} from "@xyflow/react";
 import {
-    type FlowAlgorithm,
+    type FlowAlgorithmSelector,
     type FlowService,
     type FlowState,
     getFlowServiceInstanceFor
 } from "./service/flow-service.ts";
-import {Alert, Button, ButtonGroup, Card} from "react-bootstrap";
+import {Alert, Button, ButtonGroup, Card,} from "react-bootstrap";
 import convertToReactFlow from "./converter.ts";
 import useLayout from "./LayoutHook.tsx";
+import {PreAlgoModal} from "./PreAlgoModal.tsx";
 
 interface VisualizationAreaProps {
     program: TacProgram;
-    selectedAlgorithm: FlowAlgorithm;
+    selectedAlgorithm: FlowAlgorithmSelector["kind"];
     onEndRequest: () => void;
 }
 
@@ -23,7 +24,6 @@ type ExecutionState = {
 } | {
     phase: "running", serviceValue: FlowState | undefined, hasNext: boolean, hasPrevious: boolean,
 };
-
 
 const startState: ExecutionState = {
     phase: "prerunning", explanationText: "Hier wird eine Erklärung angezeigt"
@@ -55,7 +55,20 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
     });
 
     useEffect(() => {
-        flowService.current = getFlowServiceInstanceFor(program, selectedAlgorithm);
+        switch (selectedAlgorithm) {
+            case 'liveness-basic-blocks':
+            case 'liveness-single-instruction':
+                flowService.current = getFlowServiceInstanceFor(program, {kind: selectedAlgorithm, liveOut: new Set()});
+                break;
+            case 'reaching-definitions-basic-blocks':
+                flowService.current = getFlowServiceInstanceFor(program, {kind: selectedAlgorithm});
+                break;
+            default: {
+                const exhaustiveCheck: never = selectedAlgorithm;
+                throw new Error(`Unbekannter Algorithmus: ${exhaustiveCheck}`);
+            }
+
+        }
         setExecutionState(startState);
     }, [program, selectedAlgorithm]);
 
@@ -87,9 +100,15 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
 
     useEffect(() => {
         if (layoutedEdges.length > 0) {
-            setEdges(layoutedEdges as Array<Edge & { isBackEdge: boolean }>);
+            setEdges(layoutedEdges as Array<Edge>);
         }
     }, [layoutedEdges]);
+
+    const onStart = (service : FlowService) => {
+        flowService.current = service;
+        service.advance();
+        updateStateFromService();
+    }
 
 
     // Hilfsfunktion zur Synchronisierung von Service-Zustand und React-State
@@ -124,6 +143,8 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
 
 
     return (<>
+        <PreAlgoModal program={program} selectedAlgorithm={selectedAlgorithm} handleClose={onEndRequest}
+                      show={executionState.phase === 'prerunning'} handleStart={onStart}/>
         <div
             className="flex-grow-1 position-relative"
             style={{
@@ -158,10 +179,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
                 {/* Playback Controls */}
                 <div className="mb-3">
                     <div className="d-grid gap-2">
-                        {executionState.phase === "prerunning" ? (<>
-                            <Button variant={"success"} onClick={advanceService}> Start</Button>
-                            <Button variant="danger" onClick={onEndRequest}> Beenden </Button>
-                        </>) : <>
+                        {executionState.phase === "running" && <>
                             <ButtonGroup>
                                 <Button
                                     variant="outline-primary"

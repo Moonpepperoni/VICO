@@ -1,13 +1,13 @@
 import React from 'react';
 import { Button, Alert, Stack, Container } from 'react-bootstrap';
-import type {FlowAlgorithm} from "./service/flow-service.ts";
+import type {FlowAlgorithmSelector} from "./service/flow-service.ts";
 
 interface AlgorithmMenuProps {
     isVisible: boolean;
     onToggle: () => void;
     onBackToWelcome: () => void;
     selectedAlgorithm: string | null;
-    onAlgorithmSelect: (algorithm: FlowAlgorithm) => void;
+    onAlgorithmSelect: (algorithm: FlowAlgorithmSelector["kind"]) => void;
 }
 
 export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
@@ -18,7 +18,7 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
                                                                 onAlgorithmSelect
                                                             }) => {
 
-    const flowAlgorithms : Array<{id: FlowAlgorithm, name: string}> = [
+    const flowAlgorithms : Array<{id: FlowAlgorithmSelector["kind"], name: string}> = [
         {id: 'liveness-basic-blocks', name: 'Liveness (Basic Blocks)'},
         {id: 'liveness-single-instruction', name: "Liveness (Single Instructions)"},
         {id: 'reaching-definitions-basic-blocks', name: 'Reaching Definitions (Basic Blocks)'},
