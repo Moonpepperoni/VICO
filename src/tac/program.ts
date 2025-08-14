@@ -100,6 +100,14 @@ export class TacProgram {
         return this.instructionLookupTable.size;
     }
 
+    get usedVariables() : Set<string> {
+        const used = new Set<string>();
+        for (const [,instruction] of this.instructions) {
+            instruction.getVariables().forEach(v => used.add(v));
+        }
+        return used;
+    }
+
     getExplicitJumpTargetIds(instructionId : number) : Set<number> {
         const instruction = this.instructionLookupTable.get(instructionId)!;
         switch (instruction.kind) {

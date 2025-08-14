@@ -27,7 +27,14 @@ export type BinaryArithmaticOperator = "+" | "-" | "*" | "/" | "%";
 
 export type BinaryOperator = RelationOperator | BinaryArithmaticOperator;
 
-export type InstructionType = 'jump' | 'ifWithOperator' | 'ifSingleOperand' | 'ifFalse' | 'copy' | 'assignBinary' | 'assignUnary';
+export type InstructionType =
+    'jump'
+    | 'ifWithOperator'
+    | 'ifSingleOperand'
+    | 'ifFalse'
+    | 'copy'
+    | 'assignBinary'
+    | 'assignUnary';
 
 abstract class BaseInstruction {
     readonly label?: string;
@@ -37,6 +44,8 @@ abstract class BaseInstruction {
         this.label = label;
         this[DebugLine] = line;
     }
+
+    abstract getVariables(): Set<string>;
 
     abstract toString(): string;
 }
@@ -48,6 +57,10 @@ export class JumpInstruction extends BaseInstruction {
     constructor(label: undefined | string, jmpLabel: string, line: number) {
         super(label, line);
         this.jumpLabel = jmpLabel;
+    }
+
+    getVariables(): Set<string> {
+        return new Set();
     }
 
     toString(): string {
@@ -70,6 +83,13 @@ export class IfWithOperatorInstruction extends BaseInstruction {
         this.operator = operator;
     }
 
+    getVariables(): Set<string> {
+        const variables = new Set<string>();
+        if (this.left.kind === 'ident') variables.add(this.left.val);
+        if (this.right.kind === 'ident') variables.add(this.right.val);
+        return variables;
+    }
+
     toString(): string {
         return (this.label ? `${this.label}: ` : '') + `if ${this.left.val} ${this.operator} ${this.right.val} goto ${this.jumpLabel}`;
     }
@@ -85,6 +105,12 @@ export class IfSingleOperandInstruction extends BaseInstruction {
         super(label, line);
         this.jumpLabel = jmpLabel;
         this.operand = operand;
+    }
+
+    getVariables(): Set<string> {
+        const variables = new Set<string>();
+        if (this.operand.kind === 'ident') variables.add(this.operand.val);
+        return variables;
     }
 
     toString(): string {
@@ -104,6 +130,12 @@ export class IfFalseInstruction extends BaseInstruction {
         this.operand = operand;
     }
 
+    getVariables(): Set<string> {
+        const variables = new Set<string>();
+        if (this.operand.kind === 'ident') variables.add(this.operand.val);
+        return variables;
+    }
+
     toString(): string {
         return (this.label ? `${this.label}: ` : '') + `ifFalse ${this.operand.val} goto ${this.jumpLabel}`;
     }
@@ -119,6 +151,13 @@ export class CopyInstruction extends BaseInstruction {
         super(label, line);
         this.operand = operand;
         this.target = target;
+    }
+
+    getVariables(): Set<string> {
+        const variables = new Set<string>();
+        if (this.operand.kind === 'ident') variables.add(this.operand.val);
+        if (this.target.kind === 'ident') variables.add(this.target.val);
+        return variables;
     }
 
     toString(): string {
@@ -141,6 +180,15 @@ export class BinaryAssignInstruction extends BaseInstruction {
         this.operator = operator;
     }
 
+    getVariables(): Set<string> {
+        const variables = new Set<string>();
+        if (this.left.kind === 'ident') variables.add(this.left.val);
+        if (this.right.kind === 'ident') variables.add(this.right.val);
+        variables.add(this.target.val);
+        return variables;
+    }
+
+
     toString(): string {
         return (this.label ? `${this.label}: ` : '') + `${this.target.val} = ${this.left.val} ${this.operator} ${this.right.val}`;
     }
@@ -157,6 +205,13 @@ export class UnaryAssignInstruction extends BaseInstruction {
         this.operand = operand;
         this.target = target;
         this.operator = operator;
+    }
+
+    getVariables(): Set<string> {
+        const variables = new Set<string>();
+        if (this.operand.kind === 'ident') variables.add(this.operand.val);
+        variables.add(this.target.val);
+        return variables;
     }
 
     toString(): string {

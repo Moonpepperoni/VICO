@@ -424,3 +424,139 @@ test('should throw error when using identifier in place of label', () => {
         new TacParser('if a == b goto somevar').parseTac();
     }).toThrowError(/expected.*label/);
 });
+
+test('JumpInstruction should return empty set of variables', () => {
+    const result = parser('goto SOME_LABEL1').parseTac();
+    const instruction = result[0] as JumpInstruction;
+    expect(instruction.getVariables()).toEqual(new Set());
+    expect(instruction.getVariables().size).toBe(0);
+});
+
+test('IfWithOperatorInstruction should return set with both variables when both operands are identifiers', () => {
+    const result = parser('if a == b goto LABEL1').parseTac();
+    const instruction = result[0] as IfWithOperatorInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a', 'b']));
+    expect(instruction.getVariables().size).toBe(2);
+    expect(instruction.getVariables().has('a')).toBe(true);
+    expect(instruction.getVariables().has('b')).toBe(true);
+});
+
+test('IfWithOperatorInstruction should return set with only left variable when right is integer', () => {
+    const result = parser('if a <= 2 goto LABEL1').parseTac();
+    const instruction = result[0] as IfWithOperatorInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a']));
+    expect(instruction.getVariables().size).toBe(1);
+    expect(instruction.getVariables().has('a')).toBe(true);
+});
+
+test('IfWithOperatorInstruction should return set with only right variable when left is integer', () => {
+    const result = parser('if 2 <= a goto LABEL1').parseTac();
+    const instruction = result[0] as IfWithOperatorInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a']));
+    expect(instruction.getVariables().size).toBe(1);
+    expect(instruction.getVariables().has('a')).toBe(true);
+});
+
+test('IfWithOperatorInstruction should return empty set when both operands are integers', () => {
+    const result = parser('if 1 <= 2 goto LABEL1').parseTac();
+    const instruction = result[0] as IfWithOperatorInstruction;
+    expect(instruction.getVariables()).toEqual(new Set());
+    expect(instruction.getVariables().size).toBe(0);
+});
+
+test('IfSingleOperandInstruction should return set with the operand variable', () => {
+    const result = parser('if a goto LABEL1').parseTac();
+    const instruction = result[0] as IfSingleOperandInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a']));
+    expect(instruction.getVariables().size).toBe(1);
+    expect(instruction.getVariables().has('a')).toBe(true);
+});
+
+test('IfFalseInstruction should return set with the operand variable', () => {
+    const result = parser('ifFalse a goto LABEL1').parseTac();
+    const instruction = result[0] as IfFalseInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a']));
+    expect(instruction.getVariables().size).toBe(1);
+    expect(instruction.getVariables().has('a')).toBe(true);
+});
+
+test('CopyInstruction should return set with both variables when both are identifiers', () => {
+    const result = parser('a = b').parseTac();
+    const instruction = result[0] as CopyInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a', 'b']));
+    expect(instruction.getVariables().size).toBe(2);
+    expect(instruction.getVariables().has('a')).toBe(true);
+    expect(instruction.getVariables().has('b')).toBe(true);
+});
+
+test('CopyInstruction should return set with only target variable when operand is integer', () => {
+    const result = parser('a = 10').parseTac();
+    const instruction = result[0] as CopyInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a']));
+    expect(instruction.getVariables().size).toBe(1);
+    expect(instruction.getVariables().has('a')).toBe(true);
+});
+
+test('BinaryAssignInstruction should return set with all three variables when all are identifiers', () => {
+    const result = parser('a = b + c').parseTac();
+    const instruction = result[0] as BinaryAssignInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a', 'b', 'c']));
+    expect(instruction.getVariables().size).toBe(3);
+    expect(instruction.getVariables().has('a')).toBe(true);
+    expect(instruction.getVariables().has('b')).toBe(true);
+    expect(instruction.getVariables().has('c')).toBe(true);
+});
+
+test('BinaryAssignInstruction should return set with target and left variables when right is integer', () => {
+    const result = parser('a = b + 10').parseTac();
+    const instruction = result[0] as BinaryAssignInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a', 'b']));
+    expect(instruction.getVariables().size).toBe(2);
+    expect(instruction.getVariables().has('a')).toBe(true);
+    expect(instruction.getVariables().has('b')).toBe(true);
+});
+
+test('BinaryAssignInstruction should return set with target and right variables when left is integer', () => {
+    const result = parser('a = 10 + b').parseTac();
+    const instruction = result[0] as BinaryAssignInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a', 'b']));
+    expect(instruction.getVariables().size).toBe(2);
+    expect(instruction.getVariables().has('a')).toBe(true);
+    expect(instruction.getVariables().has('b')).toBe(true);
+});
+
+test('BinaryAssignInstruction should return set with only target variable when both operands are integers', () => {
+    const result = parser('a = 10 + 20').parseTac();
+    const instruction = result[0] as BinaryAssignInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a']));
+    expect(instruction.getVariables().size).toBe(1);
+    expect(instruction.getVariables().has('a')).toBe(true);
+});
+
+test('UnaryAssignInstruction should return set with both variables when operand is identifier', () => {
+    const result = parser('a = - b').parseTac();
+    const instruction = result[0] as UnaryAssignInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a', 'b']));
+    expect(instruction.getVariables().size).toBe(2);
+    expect(instruction.getVariables().has('a')).toBe(true);
+    expect(instruction.getVariables().has('b')).toBe(true);
+});
+
+test('UnaryAssignInstruction should return set with only target variable when operand is integer', () => {
+    const result = parser('a = - 10').parseTac();
+    const instruction = result[0] as UnaryAssignInstruction;
+    expect(instruction.getVariables()).toEqual(new Set(['a']));
+    expect(instruction.getVariables().size).toBe(1);
+    expect(instruction.getVariables().has('a')).toBe(true);
+});
+
+test('Multiple instructions should correctly report their variables', () => {
+    const multiline = `HELLO: a = b
+c = a
+if c goto HELLO`;
+    const result = parser(multiline).parseTac();
+
+    expect(result[0].getVariables()).toEqual(new Set(['a', 'b']));
+    expect(result[1].getVariables()).toEqual(new Set(['c', 'a']));
+    expect(result[2].getVariables()).toEqual(new Set(['c']));
+});
