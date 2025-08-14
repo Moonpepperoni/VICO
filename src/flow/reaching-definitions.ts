@@ -46,7 +46,6 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
         }
     }
     yield convertToReachingDefinitionsState(undefined, 'Der Algorithmus ist zu Ende, da es keine weiteren Änderungen gab', cfg.nodes, genSets, killSets, inSets, outSets);
-
 }
 
 function extractDataFromStore(store: ReachingDefinitionsDataStore, nodeId: number): ReachingsDefinitionsSetData {
@@ -136,7 +135,9 @@ function convertToObserveStores(cfg: ReachingDefinitionsCFG,) {
 
 function getAllBlockGens(basicBlocks: Map<number, Array<TacInstruction>>) {
     const blockGens = new Map<number, Map<string, string>>();
+    const instructionGenNames = new Map<number, string>();
     let genNumber = 1;
+
     for (const [id, block] of basicBlocks.entries()) {
         const thisBlockGens = new Map<string, string>();
         for (const instruction of block) {
@@ -150,7 +151,7 @@ function getAllBlockGens(basicBlocks: Map<number, Array<TacInstruction>>) {
         }
         blockGens.set(id, thisBlockGens);
     }
-    return blockGens;
+    return {blockGens, instructionGenNames};
 }
 
 function getGensByVariable(blockGens: Map<number, Map<string, string>>) {
@@ -189,18 +190,21 @@ function getAllBlockKills(blockGens: Map<number, Map<string, string>>, variableG
 
 export function extractGenAndKillFromBasicBlocks(basicBlocks: Map<number, Array<TacInstruction>>): {
     genSets: Map<number, Set<string>>,
-    killSets: Map<number, Set<string>>
+    killSets: Map<number, Set<string>>,
+    instructionGenNames: Map<number, string>,
 } {
 
 
-    const blockGens = getAllBlockGens(basicBlocks);
+    const {blockGens, instructionGenNames} = getAllBlockGens(basicBlocks);
 
     const variableGens = getGensByVariable(blockGens);
     const blockKills = getAllBlockKills(blockGens, variableGens);
 
+
     return {
         genSets: new Map([...blockGens.entries()].map(([id, inner]) => [id, new Set(inner.values())])),
-        killSets: blockKills
+        killSets: blockKills,
+        instructionGenNames,
     };
 }
 

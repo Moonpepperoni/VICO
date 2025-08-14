@@ -16,11 +16,18 @@ import {
     type ReachingDefinitionsCFG,
     type ReachingDefinitionsState
 } from "../flow/reaching-definitions.ts";
+import {
+    ConstantPropagation,
+    type ConstantPropagationCFG,
+    type ConstantPropagationState,
+    extractDefinitions
+} from "../flow/constant-propagation.ts";
 
 export type FlowAlgorithmSelector =
     { kind: "liveness-single-instruction", liveOut: Set<string> }
     | { kind: "liveness-basic-blocks", liveOut: Set<string> }
-    | { kind: "reaching-definitions-basic-blocks" };
+    | { kind: "reaching-definitions-basic-blocks" }
+    | { kind: "constant-propagation-basic-blocks" };
 
 export type FlowServiceInitFunction<T> = (tacProgram: TacProgram, cacheSize: number) => {
     cfg: ControlFlowGraph,
@@ -37,6 +44,8 @@ export function getFlowServiceInstanceFor(tacProgram: TacProgram, algorithm: Flo
             return new LivenessBasicBlockService(tacProgram, algorithm.liveOut);
         case "reaching-definitions-basic-blocks":
             return new ReachingDefinitionsService(tacProgram);
+        case "constant-propagation-basic-blocks":
+            return new ConstantPropagationService(tacProgram);
         default: {
             const exhaustiveCheck: never = algorithm;
             throw new Error(`Unknown algorithm: ${exhaustiveCheck}`);
@@ -253,6 +262,101 @@ function selectReachingDefinitionsForBasicBlocks(tacProgram: TacProgram, cacheSi
     return {cfg, cache: new GeneratorCache(ReachingDefinitions(reachingDefinitionsCFG), cacheSize)};
 }
 
+export class ConstantPropagationService extends FlowServiceBase<ConstantPropagationState> {
+    constructor(tacProgram: TacProgram, cacheSize = 100) {
+        super(tacProgram, selectConstantPropagation, convertConstantPropagationToFlowOut, cacheSize);
+    }
+}
+
+function selectConstantPropagation(tacProgram: TacProgram, cacheSize: number): {
+    cache: GeneratorCache<ConstantPropagationState>,
+    cfg: ControlFlowGraph
+} {
+    const cfg = new BasicBlockControlFlowGraph(tacProgram);
+    const basicBlocks = new Map(cfg.dataNodeIds.map(id => [id, cfg.getNodeInstructions(id)!]));
+    const {definitions} = extractDefinitions(basicBlocks);
+
+    const constantPropagationCFG: ConstantPropagationCFG = {
+        definitions,
+        entryId: cfg.entryId,
+        exitId: cfg.exitId,
+        nodes: cfg.nodeIds,
+        successors: cfg.getAllSuccessors(),
+        predecessors: cfg.getAllPredecessors(),
+    };
+    return {cfg, cache: new GeneratorCache(ConstantPropagation(constantPropagationCFG), cacheSize)};
+}
+
+function convertConstantPropagationToFlowOut(cfg: ControlFlowGraph, constantPropagationState: ConstantPropagationState ) {
+
+        const nodes = new Array<FlowNodeData>();
+        const edges = new Array<FlowEdgeData>();
+
+        for (const nodeId of cfg.nodeIds) {
+            const nodeData = constantPropagationState.state.get(nodeId)!;
+            const instructions = cfg.getNodeInstructions(nodeId)?.map(i =>  i.toString()) ?? [];
+
+            const inMap: FlowValue = {
+                lookedAt: nodeData.inMap.lookedAt,
+                changed: nodeData.inMap.changed,
+                value: {type: 'string-map', data: nodeData.inMap.data}
+            };
+            const outMap: FlowValue = {
+                lookedAt: nodeData.outMap.lookedAt,
+                changed: nodeData.outMap.changed,
+                value: {type: 'string-map', data: nodeData.outMap.data}
+            };
+
+            if (nodeId === cfg.entryId) {
+                nodes.push({
+                    isCurrent: constantPropagationState.currentNodeId === nodeId,
+                    id: nodeId,
+                    kind: 'entry',
+                    inValue: inMap,
+                    outValue: outMap,
+                });
+                continue;
+            }
+
+            if (nodeId === cfg.exitId) {
+                nodes.push({
+                    isCurrent: constantPropagationState.currentNodeId === nodeId,
+                    id: nodeId,
+                    kind: 'exit',
+                    inValue: inMap,
+                    outValue: outMap,
+                });
+                continue;
+            }
+
+
+            const perNodeValues = new Map<string, FlowValue>();
+
+            nodes.push({
+                isCurrent: constantPropagationState.currentNodeId === nodeId,
+                kind: "node",
+                id: nodeId,
+                outValue: outMap,
+                inValue: inMap,
+                perNodeValues,
+                instructions,
+            });
+
+        }
+
+        for (const [src, targets] of cfg.getAllSuccessors()) {
+            targets.forEach(target => {
+                edges.push({src, target, isBackEdge: cfg.isBackEdge(src, target)});
+            });
+        }
+
+        return {
+            reason: constantPropagationState.reason,
+            nodes,
+            edges,
+        }
+}
+
 
 function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState): FlowState {
     const nodes = new Array<FlowNodeData>();
@@ -337,7 +441,7 @@ export type FlowState = {
     reason: string,
     nodes: Array<FlowNodeData>,
     edges: Array<FlowEdgeData>,
-};
+}
 
 export type FlowDataNodeData = {
     isCurrent: boolean,
@@ -347,7 +451,7 @@ export type FlowDataNodeData = {
     inValue: FlowValue,
     outValue: FlowValue,
     perNodeValues: Map<string, FlowValue>
-};
+}
 
 export type FlowEntryExitData = {
     id: number,
@@ -355,7 +459,7 @@ export type FlowEntryExitData = {
     kind: "entry" | "exit",
     inValue: FlowValue,
     outValue: FlowValue,
-};
+}
 
 export type FlowNodeData = FlowDataNodeData | FlowEntryExitData;
 
@@ -363,4 +467,7 @@ export type FlowEdgeData = { src: number, target: number, isBackEdge: boolean };
 
 export type FlowValue = { lookedAt: boolean, changed: boolean, value: FlowValueData };
 
-export type FlowValueData = { type: 'string-set', data: Set<string> };
+export type FlowValueData = { type: 'string-set', data: Set<string> } | {
+    type: 'string-map',
+    data: Map<string, string>
+};

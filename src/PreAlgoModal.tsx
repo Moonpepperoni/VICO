@@ -5,7 +5,7 @@ import type {TacProgram} from "./tac/program.ts";
 
 
 export interface PreAlgoModalProps {
-    selectedAlgorithm: FlowAlgorithmSelector["kind"] | null;
+    selectedAlgorithm: FlowAlgorithmSelector["kind"];
     show: boolean;
     handleClose: () => void;
     handleStart: (service: FlowService) => void;
@@ -42,15 +42,41 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
     }
 
     const onStart = () => {
-        if (selectedAlgorithm === 'liveness-basic-blocks' || selectedAlgorithm === 'liveness-single-instruction') {
-            handleStart(getFlowServiceInstanceFor(program, {
-                kind: selectedAlgorithm,
-                liveOut: selectedVariables
-            }));
-        } else {
-            handleStart(getFlowServiceInstanceFor(program, {kind: 'reaching-definitions-basic-blocks'}));
+        switch (selectedAlgorithm) {
+            case 'liveness-basic-blocks':
+            case 'liveness-single-instruction':
+                handleStart(getFlowServiceInstanceFor(program, {
+                    kind: selectedAlgorithm,
+                    liveOut: selectedVariables,
+                }));
+                break;
+            case 'reaching-definitions-basic-blocks':
+            case 'constant-propagation-basic-blocks':
+                handleStart(getFlowServiceInstanceFor(program, {kind: selectedAlgorithm}));
+                break;
+            default: {
+                const _exhaustiveCheck: never = selectedAlgorithm;
+                throw new Error(`Unknown algorithm: ${_exhaustiveCheck}`);
+            }
         }
     };
+
+    const algorithmName = (() => {
+        switch (selectedAlgorithm) {
+            case 'liveness-basic-blocks':
+                return 'Liveness (Basic Blocks)';
+            case 'liveness-single-instruction':
+                return 'Liveness (Single Instruction)';
+            case 'reaching-definitions-basic-blocks':
+                return 'Reaching Definitions (Basic Blocks)';
+            case 'constant-propagation-basic-blocks':
+                return 'Constant Propagation (Basic Blocks)';
+            default: {
+                const _exhaustiveCheck: never = selectedAlgorithm;
+                throw new Error(`Unknown algorithm: ${_exhaustiveCheck}`);
+            }
+        }
+    })();
 
     return <Modal
         show={show}
@@ -60,9 +86,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
     >
         <Modal.Header closeButton>
             <Modal.Title>
-                {selectedAlgorithm === 'reaching-definitions-basic-blocks' && 'Reaching Definitions (Basic Blocks)'}
-                {selectedAlgorithm === 'liveness-basic-blocks' && 'Liveness (Basic Blocks)'}
-                {selectedAlgorithm === 'liveness-single-instruction' && 'Liveness (Single Instruction)'}
+                {algorithmName}
             </Modal.Title>
         </Modal.Header>
         <Modal.Body>

@@ -6,7 +6,6 @@ import {
     type FlowAlgorithmSelector,
     type FlowService,
     type FlowState,
-    getFlowServiceInstanceFor
 } from "./service/flow-service.ts";
 import {Alert, Button, ButtonGroup, Card,} from "react-bootstrap";
 import convertToReactFlow from "./converter.ts";
@@ -55,20 +54,6 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
     });
 
     useEffect(() => {
-        switch (selectedAlgorithm) {
-            case 'liveness-basic-blocks':
-            case 'liveness-single-instruction':
-                flowService.current = getFlowServiceInstanceFor(program, {kind: selectedAlgorithm, liveOut: new Set()});
-                break;
-            case 'reaching-definitions-basic-blocks':
-                flowService.current = getFlowServiceInstanceFor(program, {kind: selectedAlgorithm});
-                break;
-            default: {
-                const exhaustiveCheck: never = selectedAlgorithm;
-                throw new Error(`Unbekannter Algorithmus: ${exhaustiveCheck}`);
-            }
-
-        }
         setExecutionState(startState);
     }, [program, selectedAlgorithm]);
 
@@ -216,6 +201,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
                         {selectedAlgorithm === 'liveness-single-instruction' && 'Liveness (Single Instructions)'}
                         {selectedAlgorithm === 'liveness-basic-blocks' && 'Liveness (Basic Blocks)'}
                         {selectedAlgorithm === 'reaching-definitions-basic-blocks' && 'Reaching Definitions (Basic Blocks)'}
+                        {selectedAlgorithm === 'constant-propagation-basic-blocks' && 'Constant Propagation (Basic Blocks)'}
                         {selectedAlgorithm === null && 'Keiner ausgewählt'}
                     </small>
                 </Alert>

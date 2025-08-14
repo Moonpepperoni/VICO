@@ -22,6 +22,7 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
         {id: 'liveness-basic-blocks', name: 'Liveness (Basic Blocks)'},
         {id: 'liveness-single-instruction', name: "Liveness (Single Instructions)"},
         {id: 'reaching-definitions-basic-blocks', name: 'Reaching Definitions (Basic Blocks)'},
+        {id: 'constant-propagation-basic-blocks', name: 'Constant Propagation (Basic Blocks)'},
     ];
 
     return (
