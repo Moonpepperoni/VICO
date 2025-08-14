@@ -1,7 +1,25 @@
 import React from "react";
-import { Container, Row, Col, Button } from 'react-bootstrap';
+import {Container, Row, Col, Button} from 'react-bootstrap';
 
-export const WelcomeContent: React.FC = () => {
+const EXAMPLE_CODE = `inc1 = 2
+inc2 = inc1 + 2
+i = 0
+res = 0
+LOOP_START: if i < 10 goto LOOP_END
+mod = i % 2
+if mod == 0 goto ELSE_BRANCH
+res = res + inc1
+goto BRANCH_END
+ELSE_BRANCH: res = res + inc2
+BRANCH_END: i = i + 1 
+goto LOOP_START
+LOOP_END: final = res`;
+
+export interface WelcomeContentProps {
+    onGoClick : (content :string, name : string) => void,
+}
+
+export const WelcomeContent: React.FC<WelcomeContentProps> = ({onGoClick}) => {
     const scrollToFileUpload = () => {
         const fileUploadElement = document.getElementById('file-upload-section');
         if (fileUploadElement) {
@@ -23,8 +41,12 @@ export const WelcomeContent: React.FC = () => {
                     variant="primary"
                     size="lg"
                     onClick={scrollToFileUpload}
+                    className="me-3"
                 >
-                    Gleich loslegen
+                    Eigene Datei hochladen
+                </Button>
+                <Button variant="dark" size="lg" onClick={() => onGoClick(EXAMPLE_CODE, "example.tac")}>
+                    Einfach loslegen
                 </Button>
             </div>
 

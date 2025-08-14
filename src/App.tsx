@@ -1,50 +1,36 @@
 import React, {useState} from 'react';
 import {TopBar} from './TopBar';
-import {WelcomePage} from './WelcomePage';
+import {type FileData, WelcomePage} from './WelcomePage';
 import {AnalysisPage} from './AnalysisPage';
 import 'bootstrap/dist/css/bootstrap.css'
 import {enableMapSet} from "immer";
 
 enableMapSet();
 
-interface FileData {
-    name: string;
-    content: string;
-}
 
 const App: React.FC = () => {
     const [currentPage, setCurrentPage] = useState<'welcome' | 'analysis'>('welcome');
-    const [uploadedFile, setUploadedFile] = useState<FileData | null>(null);
+    const [fileData, setFileData] = useState<FileData | null>(null);
 
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file && file.name.endsWith('.tac')) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setUploadedFile({
-                    name: file.name, content: e.target?.result as string
-                });
-                setCurrentPage('analysis');
-            };
-            reader.readAsText(file);
-        } else {
-            alert('Bitte wählen Sie eine .tac Datei aus.');
-        }
-    };
 
     const handleBackToWelcome = () => {
         setCurrentPage('welcome');
-        setUploadedFile(null);
+        setFileData(null);
     };
+
+    const onFileDataChange = (newFileData: FileData) => {
+        setFileData(newFileData);
+        setCurrentPage('analysis');
+    }
 
     return (<div className="vh-100 vw-100 d-flex flex-column">
             <TopBar/>
 
             <div className="flex-grow-1 overflow-hidden">
-                {currentPage === 'welcome' && (<WelcomePage onFileUpload={handleFileUpload}/>)}
+                {currentPage === 'welcome' && (<WelcomePage setFileData={onFileDataChange}/>)}
                 {currentPage === 'analysis' && (<AnalysisPage
-                        fileName={uploadedFile?.name || ''}
-                        fileContent={uploadedFile?.content || ''}
+                        fileName={fileData?.name || ''}
+                        fileContent={fileData?.content || ''}
                         onBackToWelcome={handleBackToWelcome}
                     />)}
             </div>
