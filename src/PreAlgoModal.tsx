@@ -1,6 +1,6 @@
 import React, {type ChangeEvent, useState} from "react";
 import {type FlowAlgorithmSelector, type FlowService, getFlowServiceInstanceFor} from "./service/flow-service.ts";
-import {Button, Form, Modal} from "react-bootstrap";
+import {Button, Card, Form, Modal} from "react-bootstrap";
 import type {TacProgram} from "./tac/program.ts";
 
 
@@ -78,11 +78,28 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
         }
     })();
 
+    const algorithmDescription = (() => {
+        switch (selectedAlgorithm) {
+            case 'liveness-basic-blocks':
+            case 'liveness-single-instruction':
+                return 'Dieser Algorithmus berechnet, welche Variablen an jedem Programmpunkt "lebendig" sind, d.h. deren aktueller Wert in der Zukunft noch gelesen werden könnte. Eine Variable ist an einem Punkt lebendig, wenn es einen Pfad vom aktuellen Punkt zu einer Verwendung der Variable gibt, ohne dass die Variable neu definiert wird.';
+            case 'reaching-definitions-basic-blocks':
+                return 'Der Reaching Definitions Algorithmus berechnet für jeden Programmpunkt, welche Variablendefinitionen (Zuweisungen) diesen Punkt erreichen können. Eine Definition erreicht einen Punkt, wenn es einen Pfad von der Definition zum Punkt gibt, auf dem die Variable nicht neu definiert wird. Dies ist nützlich, um zu verstehen, woher Variablenwerte stammen können.';
+            case 'constant-propagation-basic-blocks':
+                return 'Dieser Algorithmus analysiert, welche Variablen an bestimmten Programmpunkten konstante Werte haben. Er verfolgt Zuweisungen von Konstanten und propagiert diese durch das Programm, solange keine mehrdeutigen Zuweisungen oder Berechnungen auftreten. Dies ermöglicht Optimierungen wie das Ersetzen von Variablen durch ihre konstanten Werte.';
+            default: {
+                const _exhaustiveCheck: never = selectedAlgorithm;
+                throw new Error(`Unknown algorithm: ${_exhaustiveCheck}`);
+            }
+        }
+    })();
+
     return <Modal
         show={show}
         onHide={handleClose}
         backdrop="static"
         keyboard={false}
+        centered
     >
         <Modal.Header closeButton>
             <Modal.Title>
@@ -90,7 +107,16 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
             </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-            Hier steht eine Beschreibung des Algorithmus
+            <Card>
+                <Card.Header>
+                    <Card.Title>Beschreibung</Card.Title>
+                </Card.Header>
+                <Card.Body>
+                    <Card.Text>
+                        {algorithmDescription}
+                    </Card.Text>
+                </Card.Body>
+            </Card>
             {(selectedAlgorithm === 'liveness-basic-blocks' || selectedAlgorithm === 'liveness-single-instruction') &&
                 <Form>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
@@ -110,6 +136,8 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
                     </Form.Group>
                 </Form>
             }
+
+
         </Modal.Body>
         <Modal.Footer>
             <Button variant="secondary" onClick={handleClose}>
