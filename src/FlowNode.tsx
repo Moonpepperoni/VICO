@@ -1,8 +1,17 @@
 import {Handle, type Node, type NodeProps, Position} from '@xyflow/react';
-import type {FlowNodeData, FlowValue} from "./service/flow-service.ts";
+import type {FlowNodeData, FlowValue, FlowValueData} from "./service/flow-service.ts";
 import {Badge, Card} from 'react-bootstrap';
 
 type FlowNode = Node<FlowNodeData, 'number'>;
+
+function flowValueToString(value : FlowValueData) : string {
+    switch (value.type) {
+        case 'string-set':
+            return [...value.data].join(", ");
+        case "string-map":
+            return [...value.data.entries()].map(([k, v]) => `${k}: ${v}`).join(", ");
+    }
+}
 
 export default function FlowNode({data}: NodeProps<FlowNode>) {
     const {inValue, outValue, kind} = data;
@@ -10,23 +19,8 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
     if (kind === 'node') {
         perNodeValues = data.perNodeValues;
     }
-    let inRep: string = "";
-    switch (inValue.value.type) {
-        case 'string-set':
-            inRep = [...inValue.value.data].join(", ");
-            break;
-        case "string-map":
-            inRep = [...inValue.value.data.entries()].map(([k, v]) => `${k}: ${v}`).join(", ");
-            break;
-    }
-    let outRep: string = '';
-    switch (outValue.value.type) {
-        case 'string-set':
-            outRep = [...outValue.value.data].join(", ");
-            break;
-        case "string-map":
-            outRep = [...outValue.value.data.entries()].map(([k, v]) => `${k}: ${v}`).join(", ");
-    }
+    const inRep = flowValueToString(inValue.value);
+    const outRep = flowValueToString(outValue.value);
     const perNodeValuesRep: Array<[string, {
         changed: boolean,
         lookedAt: boolean,
