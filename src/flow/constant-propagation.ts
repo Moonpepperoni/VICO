@@ -148,8 +148,12 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
                     newIn.forEach((value, variable) => {
                         newMap.set(variable, meetOperator(value, newMap.get(variable) ?? {kind: 'UNDEF'}));
                     });
+                    const changesAtEachInstruction = new Map<string, PropagationValue>([...newIn.entries()]);
                     currentDefinitions?.forEach(definition => {
-                        newMap.set(definition.target, meetInstruction(newIn, definition));
+                        changesAtEachInstruction.set(definition.target, meetInstruction(changesAtEachInstruction, definition));
+                    })
+                    changesAtEachInstruction.forEach((value, variable) => {
+                        newMap.set(variable, value);
                     })
                 });
             });
