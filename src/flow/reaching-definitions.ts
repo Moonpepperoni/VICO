@@ -15,9 +15,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
     while (changed) {
         changed = false;
         for (const currentNodeId of iterationOrder) {
-            const oldIn = inSets.getValueRaw(currentNodeId)!;
-            const currentGenSet = genSets.getValue(currentNodeId);
-            const currentKillSet = killSets.getValue(currentNodeId);
+
             // compute new inSet
             inSets.changeWith(currentNodeId, (prevSet) => {
                 return produce(prevSet, (newSet) => {
@@ -29,7 +27,10 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
                     }
                 });
             });
+            const oldOut = outSets.getValueRaw(currentNodeId)!;
             yield convertToReachingDefinitionsState(currentNodeId, 'in-computed', cfg.nodes, genSets, killSets, inSets, outSets);
+            const currentGenSet = genSets.getValue(currentNodeId);
+            const currentKillSet = killSets.getValue(currentNodeId);
             // compute new outSet
             outSets.changeWith(currentNodeId, (prevSet) => {
                 // out = gen [union] (in - kill)
@@ -41,8 +42,8 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
                 });
             });
 
-            const newIn = inSets.getValueRaw(currentNodeId)!;
-            if (!genKillSetEqual(oldIn, newIn)) changed = true;
+            const newOut = inSets.getValueRaw(currentNodeId)!;
+            if (!genKillSetEqual(oldOut, newOut)) changed = true;
             yield convertToReachingDefinitionsState(currentNodeId, 'out-computed', cfg.nodes, genSets, killSets, inSets, outSets);
         }
     }

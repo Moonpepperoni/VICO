@@ -15,9 +15,7 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
     while (changed) {
         changed = false;
         for (const currentNodeId of iterationOrder) {
-            const oldIn = inSets.getValueRaw(currentNodeId)!;
-            const currentDefSet = defSets.getValue(currentNodeId);
-            const currentUseSet = useSets.getValue(currentNodeId);
+
             // compute new outSet
             outSets.changeWith(currentNodeId, (prevSet) => {
                 return produce(prevSet, (newSet) => {
@@ -30,6 +28,9 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
                 });
             });
             yield convertToLivenessState(currentNodeId, 'out-computed', cfg.nodes, defSets, useSets, inSets, outSets);
+            const oldIn = inSets.getValueRaw(currentNodeId)!;
+            const currentDefSet = defSets.getValue(currentNodeId);
+            const currentUseSet = useSets.getValue(currentNodeId);
             // compute new inSet
             inSets.changeWith(currentNodeId, (prevSet) => {
                 // out = use [union] (out - def)

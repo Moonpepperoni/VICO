@@ -5,6 +5,8 @@ import {enableMapSet} from "immer";
 // must be enabled for the tests
 enableMapSet();
 
+// TODO: add tests to check only the correct sets are looked at for each step
+
 class LivenessCFGBuilder {
     private readonly nodes: Array<number>;
     private readonly useSets: Map<number, Set<string>>;

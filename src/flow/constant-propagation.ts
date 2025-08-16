@@ -127,8 +127,6 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
     while (changed) {
         changed = false;
         for (const currentNodeId of iterationOrder) {
-            const oldIn = inMaps.getValueRaw(currentNodeId)!;
-            const currentDefinitions = definitions.getValue(currentNodeId);
             // compute new inMap
             inMaps.changeWith(currentNodeId, (prevSet) => {
                 return produce(prevSet, (newInMap) => {
@@ -141,8 +139,10 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
                 });
             });
             yield convertToConstantPropagationState(currentNodeId, 'in-computed', cfg.nodes, inMaps, outMaps);
+            const currentDefinitions = definitions.getValue(currentNodeId);
             // this must exist because we initialize the inMaps for all possible ids
             const newIn = inMaps.getValue(currentNodeId)!;
+            const oldOut = outMaps.getValue(currentNodeId)!;
             // first copy all definitions from the inMap to the outMap
             // then apply the meet operator to all definitions
             outMaps.changeWith(currentNodeId, (prevSet) => {
@@ -160,7 +160,9 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
                 });
             });
 
-            if (!inOutMapsEqual(oldIn, newIn)) changed = true;
+            const newOut = outMaps.getValueRaw(currentNodeId)!;
+
+            if (!inOutMapsEqual(oldOut, newOut)) changed = true;
             yield convertToConstantPropagationState(currentNodeId, 'out-computed', cfg.nodes, inMaps, outMaps);
         }
     }
