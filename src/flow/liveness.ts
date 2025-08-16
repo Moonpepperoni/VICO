@@ -1,6 +1,7 @@
 import type {TacInstruction} from "../tac/parser-types.ts";
 import {FlowObserveStore} from "./observe.ts";
 import {produce} from "immer";
+import type {YieldReason} from "./common.ts";
 
 export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Generator<LivenessState> {
     // setup all the required data and use auto change and look at
@@ -8,7 +9,7 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
 
     // we want the reverse topological order, due to the simple structure of the cfgs, we can use bfs here
     const iterationOrder = getReverseTopologicalOrder(cfg.entryId, cfg);
-    yield convertToLivenessState(undefined, 'Initial werden alle Use- und Def-Mengen basierend auf den Instruktionen gesetzt', cfg.nodes, defSets, useSets, inSets, outSets);
+    yield convertToLivenessState(undefined, 'initialized', cfg.nodes, defSets, useSets, inSets, outSets);
 
     let changed = true;
     while (changed) {
@@ -28,7 +29,7 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
                     }
                 });
             });
-            yield convertToLivenessState(currentNodeId, 'Berechne neue Out-Menge durch Vereinigung der In-Menge, aller Vorgänger', cfg.nodes, defSets, useSets, inSets, outSets);
+            yield convertToLivenessState(currentNodeId, 'out-computed', cfg.nodes, defSets, useSets, inSets, outSets);
             // compute new inSet
             inSets.changeWith(currentNodeId, (prevSet) => {
                 // out = use [union] (out - def)
@@ -41,10 +42,10 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
             });
             const newIn = inSets.getValueRaw(currentNodeId)!;
             if (!livenessSetEqual(oldIn, newIn)) changed = true;
-            yield convertToLivenessState(currentNodeId, 'Berechne neue In-Menge als Vereinigung aus der Use-Menge und der (Differenz aus Out-Menge und Def-Menge)', cfg.nodes, defSets, useSets, inSets, outSets);
+            yield convertToLivenessState(currentNodeId, 'in-computed', cfg.nodes, defSets, useSets, inSets, outSets);
         }
     }
-    yield convertToLivenessState(undefined, 'Der Algorithmus ist zu Ende, da es keine weiteren Änderungen gab', cfg.nodes, defSets, useSets, inSets, outSets);
+    yield convertToLivenessState(undefined, 'ended', cfg.nodes, defSets, useSets, inSets, outSets);
 }
 
 function convertToObserveStores(cfg: LivenessCFG, liveOut: Set<string>) {
@@ -65,7 +66,7 @@ function convertToObserveStores(cfg: LivenessCFG, liveOut: Set<string>) {
 
 type LivenessDataStore = FlowObserveStore<Set<string>>;
 
-function convertToLivenessState(currentNodeId: number | undefined, reason: string, nodes: Array<number>, defSets: LivenessDataStore, useSets: LivenessDataStore, inSets: LivenessDataStore, outSets: LivenessDataStore): LivenessState {
+function convertToLivenessState(currentNodeId: number | undefined, reason: YieldReason, nodes: Array<number>, defSets: LivenessDataStore, useSets: LivenessDataStore, inSets: LivenessDataStore, outSets: LivenessDataStore): LivenessState {
     const stateData = new Map<number, LivenessNodeData>();
     for (const node of nodes) {
         const defSet = extractDataFromStore(defSets, node);
@@ -108,7 +109,7 @@ function livenessSetEqual(s1: Set<string>, s2: Set<string>): boolean {
     return s1.size == s2.size && [...s1].every(v => s2.has(v));
 }
 
-export type LivenessState = { currentNodeId: number | undefined, reason: string, state: Map<number, LivenessNodeData> };
+export type LivenessState = { currentNodeId: number | undefined, reason: YieldReason, state: Map<number, LivenessNodeData> };
 
 export type LivenessNodeData = {
     defSet: LivenessSetData,

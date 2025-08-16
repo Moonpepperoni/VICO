@@ -1,6 +1,7 @@
 import type {TacInstruction} from "../tac/parser-types.ts";
 import {FlowObserveStore} from "./observe.ts";
 import {produce} from "immer";
+import type {YieldReason} from "./common.ts";
 
 
 export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<ReachingDefinitionsState> {
@@ -8,8 +9,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
 
     const iterationOrder = getTopologicalOrder(cfg.entryId, cfg);
 
-    yield convertToReachingDefinitionsState(undefined, 'Initial werden alle Gen- und Kill-Mengen basierend auf den Instruktionen gesetzt', cfg.nodes, genSets, killSets, inSets, outSets);
-
+    yield convertToReachingDefinitionsState(undefined, 'initialized', cfg.nodes, genSets, killSets, inSets, outSets);
 
     let changed = true;
     while (changed) {
@@ -29,7 +29,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
                     }
                 });
             });
-            yield convertToReachingDefinitionsState(currentNodeId, 'Berechne neue In-Menge als Vereinigung der Out-Mengen, aller Vorgängerknoten', cfg.nodes, genSets, killSets, inSets, outSets);
+            yield convertToReachingDefinitionsState(currentNodeId, 'in-computed', cfg.nodes, genSets, killSets, inSets, outSets);
             // compute new outSet
             outSets.changeWith(currentNodeId, (prevSet) => {
                 // out = gen [union] (in - kill)
@@ -43,10 +43,10 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
 
             const newIn = inSets.getValueRaw(currentNodeId)!;
             if (!genKillSetEqual(oldIn, newIn)) changed = true;
-            yield convertToReachingDefinitionsState(currentNodeId, 'Berechne die neue Out-Menge als Vereinigung der Gen-Menge mit der (Differenz aus In-Menge mit der Kill-Menge)', cfg.nodes, genSets, killSets, inSets, outSets);
+            yield convertToReachingDefinitionsState(currentNodeId, 'out-computed', cfg.nodes, genSets, killSets, inSets, outSets);
         }
     }
-    yield convertToReachingDefinitionsState(undefined, 'Der Algorithmus ist zu Ende, da es keine weiteren Änderungen gab', cfg.nodes, genSets, killSets, inSets, outSets);
+    yield convertToReachingDefinitionsState(undefined, 'ended', cfg.nodes, genSets, killSets, inSets, outSets);
 }
 
 function extractDataFromStore(store: ReachingDefinitionsDataStore, nodeId: number): ReachingsDefinitionsSetData {
@@ -55,7 +55,7 @@ function extractDataFromStore(store: ReachingDefinitionsDataStore, nodeId: numbe
     return {data: copy, changed: store.hasChanged(nodeId), lookedAt: store.wasLookedAt(nodeId)};
 }
 
-function convertToReachingDefinitionsState(currentNodeId: number | undefined, reason: string, nodes: Array<number>, genSets: FlowObserveStore<Set<string>>, killSets: FlowObserveStore<Set<string>>, inSets: FlowObserveStore<Set<string>>, outSets: FlowObserveStore<Set<string>>) {
+function convertToReachingDefinitionsState(currentNodeId: number | undefined, reason: YieldReason, nodes: Array<number>, genSets: FlowObserveStore<Set<string>>, killSets: FlowObserveStore<Set<string>>, inSets: FlowObserveStore<Set<string>>, outSets: FlowObserveStore<Set<string>>) {
     const stateData = new Map<number, ReachingDefinitionsNodeData>();
     for (const node of nodes) {
         const genSet = extractDataFromStore(genSets, node);
@@ -90,7 +90,7 @@ function getTopologicalOrder(entryId: number, cfg: ReachingDefinitionsCFG): Arra
 type ReachingDefinitionsDataStore = FlowObserveStore<Set<string>>;
 
 export type ReachingDefinitionsState = {
-    reason: string,
+    reason: YieldReason,
     currentNodeId: number | undefined,
     state: Map<number, ReachingDefinitionsNodeData>,
 }

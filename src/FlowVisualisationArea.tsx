@@ -2,15 +2,13 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {FlowGraph} from "./FlowGraph.tsx";
 import type {TacProgram} from "./tac/program.ts";
 import {applyNodeChanges, type Edge, type Node, type NodeChange, ReactFlowProvider} from "@xyflow/react";
-import {
-    type FlowAlgorithmSelector,
-    type FlowService,
-    type FlowState,
-} from "./service/flow-service.ts";
+import {type FlowAlgorithmSelector, type FlowService, type FlowState,} from "./service/flow-service.ts";
 import {Alert, Button, ButtonGroup, Card,} from "react-bootstrap";
 import convertToReactFlow from "./converter.ts";
 import useLayout from "./LayoutHook.tsx";
 import {PreAlgoModal} from "./PreAlgoModal.tsx";
+import type {Explanation} from "./explanation/engine.ts";
+import {MathRenderer} from "./MathRenderer.tsx";
 
 interface VisualizationAreaProps {
     program: TacProgram;
@@ -19,13 +17,13 @@ interface VisualizationAreaProps {
 }
 
 type ExecutionState = {
-    phase: "prerunning", explanationText: string,
+    phase: "prerunning", explanation: Explanation,
 } | {
     phase: "running", serviceValue: FlowState | undefined, hasNext: boolean, hasPrevious: boolean,
 };
 
 const startState: ExecutionState = {
-    phase: "prerunning", explanationText: "Hier wird eine Erklärung angezeigt"
+    phase: "prerunning", explanation: [{kind: 'text', content: "Hier wird eine Erklärung angezeigt"}]
 };
 
 export const FlowVisualisationArea: React.FC<VisualizationAreaProps> = ({program, selectedAlgorithm, onEndRequest}) => {
@@ -89,7 +87,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
         }
     }, [layoutedEdges]);
 
-    const onStart = (service : FlowService) => {
+    const onStart = (service: FlowService) => {
         flowService.current = service;
         service.advance();
         updateStateFromService();
@@ -142,7 +140,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
         </div>
         <div
             className="bg-light border-start d-flex flex-column"
-            style={{width: '320px', minWidth: '320px'}}
+            style={{width: '20%', minWidth: '350px'}}
         >
             {/* Step Explanation Area */}
             <div className="flex-grow-1 p-3 border-bottom">
@@ -153,7 +151,15 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
                         <h6 className="mb-0">Aktueller Schritt</h6>
                     </Card.Header>
                     <Card.Body>
-                        <p className="mb-0">{executionState.phase === 'prerunning' ? executionState.explanationText : executionState.serviceValue?.reason}</p>
+                        {executionState.phase === 'prerunning' ?
+                            executionState.explanation.map(e => <p className="mb-0">{e.content}</p>) :
+                            executionState.serviceValue?.explanation.map(e => {
+                                if (e.kind === 'text') {
+                                    return <p className="mb-0">{e.content}</p>
+                                } else {
+                                    return <MathRenderer formula={e.content}/>
+                                }
+                            })}
                     </Card.Body>
                 </Card>
             </div>

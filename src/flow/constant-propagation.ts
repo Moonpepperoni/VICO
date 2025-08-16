@@ -1,6 +1,7 @@
 import {type BinaryOperator, type TacInstruction, type UnaryOperator} from "../tac/parser-types.ts";
 import {FlowObserveStore} from "./observe.ts";
 import {produce} from "immer";
+import type {YieldReason} from "./common.ts";
 
 type Definition = {
     kind: 'copy',
@@ -121,7 +122,7 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
     const {definitions, inMaps, outMaps} = convertToObserveStores(cfg);
     const iterationOrder = getTopologicalOrder(cfg.entryId, cfg);
 
-    yield convertToConstantPropagationState(undefined, 'Initial werden alle In- und Out-Mengen auf die leere Menge gesetzt', cfg.nodes, inMaps, outMaps);
+    yield convertToConstantPropagationState(undefined, 'initialized', cfg.nodes, inMaps, outMaps);
     let changed = true;
     while (changed) {
         changed = false;
@@ -139,7 +140,7 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
                     }
                 });
             });
-            yield convertToConstantPropagationState(currentNodeId, 'Berechne neue In-Menge, durch Anwendung des Meet-Operators auf jede Out-Variable des Vorgängers mit der aktuellen In-Variable', cfg.nodes, inMaps, outMaps);
+            yield convertToConstantPropagationState(currentNodeId, 'in-computed', cfg.nodes, inMaps, outMaps);
             // this must exist because we initialize the inMaps for all possible ids
             const newIn = inMaps.getValue(currentNodeId)!;
             // first copy all definitions from the inMap to the outMap
@@ -160,13 +161,13 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
             });
 
             if (!inOutMapsEqual(oldIn, newIn)) changed = true;
-            yield convertToConstantPropagationState(currentNodeId, 'Berechne die neue Out-Menge, durch Extraktion der benutzten und definierten Variablen an jedem Programmpunkt und anschließende Anwendung des Meet-Operators auf die Variablen der In-Menge', cfg.nodes, inMaps, outMaps);
+            yield convertToConstantPropagationState(currentNodeId, 'out-computed', cfg.nodes, inMaps, outMaps);
         }
     }
-    yield convertToConstantPropagationState(undefined, 'Der Algorithmus ist zu Ende, da es keine weiteren Änderungen gab', cfg.nodes, inMaps, outMaps);
+    yield convertToConstantPropagationState(undefined, 'ended' , cfg.nodes, inMaps, outMaps);
 }
 
-function convertToConstantPropagationState(currentNodeId: number | undefined, reason: string, nodes: Array<number>, inMaps: FlowObserveStore<InOutMap>, outMaps: FlowObserveStore<InOutMap>) {
+function convertToConstantPropagationState(currentNodeId: number | undefined, reason: YieldReason, nodes: Array<number>, inMaps: FlowObserveStore<InOutMap>, outMaps: FlowObserveStore<InOutMap>) {
     const stateData = new Map<number, ConstantPropagationNodeData>();
     for (const node of nodes) {
         const inMap = extractDataFromStore(inMaps, node);
@@ -184,7 +185,7 @@ function extractDataFromStore(store: InOutMapStore, nodeId: number): InOutMapDat
     return {data: copy, changed: store.hasChanged(nodeId), lookedAt: store.wasLookedAt(nodeId)};
 }
 
-export type ConstantPropagationState = { currentNodeId: number | undefined, reason: string, state: Map<number, ConstantPropagationNodeData> };
+export type ConstantPropagationState = { currentNodeId: number | undefined, reason: YieldReason, state: Map<number, ConstantPropagationNodeData> };
 
 export type ConstantPropagationNodeData = {
     inMap: InOutMapData,

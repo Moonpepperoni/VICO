@@ -22,6 +22,13 @@ import {
     type ConstantPropagationState,
     extractDefinitions
 } from "../flow/constant-propagation.ts";
+import {
+    explainConstantPropagation,
+    explainLiveness,
+    explainReachingDefinitions,
+    type Explanation,
+    type ExplanationFunction
+} from "../explanation/engine.ts";
 
 export type FlowAlgorithmSelector =
     { kind: "liveness-single-instruction", liveOut: Set<string> }
@@ -34,7 +41,7 @@ export type FlowServiceInitFunction<T> = (tacProgram: TacProgram, cacheSize: num
     cache: GeneratorCache<T>
 };
 
-export type FlowConverterFunction<T> = (cfg: ControlFlowGraph, state: T) => FlowState;
+export type FlowConverterFunction<T> = (cfg: ControlFlowGraph, state: T, explanationFunction : ExplanationFunction) => FlowState;
 
 export function getFlowServiceInstanceFor(tacProgram: TacProgram, algorithm: FlowAlgorithmSelector): FlowService {
     switch (algorithm.kind) {
@@ -72,12 +79,14 @@ export class FlowServiceBase<T> {
     private readonly cache: GeneratorCache<T>;
     private readonly cfg: ControlFlowGraph;
     private readonly converter: FlowConverterFunction<T>;
+    private readonly explanationFunction: ExplanationFunction;
 
-    constructor(tacProgram: TacProgram, initFunction: FlowServiceInitFunction<T>, resultConverter: FlowConverterFunction<T>, cacheSize = 100) {
+    constructor(tacProgram: TacProgram, initFunction: FlowServiceInitFunction<T>, resultConverter: FlowConverterFunction<T>, explanationFunction : ExplanationFunction,cacheSize = 100) {
         const {cfg, cache} = initFunction(tacProgram, cacheSize);
         this.cfg = cfg;
         this.cache = cache;
         this.converter = resultConverter;
+        this.explanationFunction = explanationFunction;
     }
 
     advance() {
@@ -88,7 +97,7 @@ export class FlowServiceBase<T> {
     currentValue(): FlowState | undefined {
         const currentValue = this.cache.currentValue();
         if (currentValue === undefined) return undefined;
-        return this.converter(this.cfg, currentValue);
+        return this.converter(this.cfg, currentValue, this.explanationFunction);
     }
 
     previous() {
@@ -113,17 +122,17 @@ export class FlowServiceBase<T> {
 
 export class LivenessSingleInstructionService extends FlowServiceBase<LivenessState> {
     constructor(tacProgram: TacProgram, liveOut: Set<string>, cacheSize = 100) {
-        super(tacProgram, selectLivenessForSingleInstructions(liveOut), convertToLiveness, cacheSize);
+        super(tacProgram, selectLivenessForSingleInstructions(liveOut), convertToLiveness, explainLiveness,cacheSize);
     }
 }
 
 export class LivenessBasicBlockService extends FlowServiceBase<LivenessState> {
     constructor(tacProgram: TacProgram, liveOut: Set<string>, cacheSize = 100) {
-        super(tacProgram, selectLivenessForBasicBlocks(liveOut), convertToLiveness, cacheSize);
+        super(tacProgram, selectLivenessForBasicBlocks(liveOut), convertToLiveness, explainLiveness, cacheSize);
     }
 }
 
-function convertReachingToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsState: ReachingDefinitionsState): FlowState {
+function convertReachingToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsState: ReachingDefinitionsState, explanationFunction : ExplanationFunction): FlowState {
     const nodes = new Array<FlowNodeData>();
     const edges = new Array<FlowEdgeData>();
 
@@ -194,7 +203,7 @@ function convertReachingToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsStat
         });
     }
     return {
-        reason: reachingDefinitionsState.reason,
+        explanation: explanationFunction(reachingDefinitionsState.reason),
         nodes,
         edges,
     }
@@ -202,7 +211,7 @@ function convertReachingToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsStat
 
 export class ReachingDefinitionsService extends FlowServiceBase<ReachingDefinitionsState> {
     constructor(tacProgram: TacProgram, cacheSize = 100) {
-        super(tacProgram, selectReachingDefinitionsForBasicBlocks, convertReachingToFlowOut, cacheSize);
+        super(tacProgram, selectReachingDefinitionsForBasicBlocks, convertReachingToFlowOut, explainReachingDefinitions,cacheSize);
     }
 }
 
@@ -264,7 +273,7 @@ function selectReachingDefinitionsForBasicBlocks(tacProgram: TacProgram, cacheSi
 
 export class ConstantPropagationService extends FlowServiceBase<ConstantPropagationState> {
     constructor(tacProgram: TacProgram, cacheSize = 100) {
-        super(tacProgram, selectConstantPropagation, convertConstantPropagationToFlowOut, cacheSize);
+        super(tacProgram, selectConstantPropagation, convertConstantPropagationToFlowOut, explainConstantPropagation, cacheSize);
     }
 }
 
@@ -287,7 +296,7 @@ function selectConstantPropagation(tacProgram: TacProgram, cacheSize: number): {
     return {cfg, cache: new GeneratorCache(ConstantPropagation(constantPropagationCFG), cacheSize)};
 }
 
-function convertConstantPropagationToFlowOut(cfg: ControlFlowGraph, constantPropagationState: ConstantPropagationState ) {
+function convertConstantPropagationToFlowOut(cfg: ControlFlowGraph, constantPropagationState: ConstantPropagationState, explanationFunction : ExplanationFunction ) {
 
         const nodes = new Array<FlowNodeData>();
         const edges = new Array<FlowEdgeData>();
@@ -351,14 +360,14 @@ function convertConstantPropagationToFlowOut(cfg: ControlFlowGraph, constantProp
         }
 
         return {
-            reason: constantPropagationState.reason,
+            explanation: explanationFunction(constantPropagationState.reason),
             nodes,
             edges,
         }
 }
 
 
-function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState): FlowState {
+function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState, explanationFunction : ExplanationFunction): FlowState {
     const nodes = new Array<FlowNodeData>();
     const edges = new Array<FlowEdgeData>();
 
@@ -431,14 +440,14 @@ function convertToLiveness(cfg: ControlFlowGraph, livenessState: LivenessState):
         });
     }
     return {
-        reason: livenessState.reason,
+        explanation: explanationFunction(livenessState.reason),
         nodes,
         edges,
     }
 }
 
 export type FlowState = {
-    reason: string,
+    explanation: Explanation,
     nodes: Array<FlowNodeData>,
     edges: Array<FlowEdgeData>,
 }

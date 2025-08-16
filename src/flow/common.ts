@@ -1,0 +1,1 @@
+export type YieldReason = 'initialized' | 'ended' | 'in-computed' | 'out-computed';
