@@ -48,7 +48,7 @@ export function explainLiveness(yieldReason: YieldReason): Explanation {
         case "out-computed":
             return [{kind: 'text', content: 'Berechne die neue Out-Menge durch:'}, {
                 kind: 'math',
-                content: '\\(out(node) := \\bigcup_{s \\in vorgaenger(node)}in(s)\\)'
+                content: '\\(out(node) := \\bigcup_{s \\in nachfolger(node)}in(s)\\)'
             }];
         default: {
             const _exhaustiveCheck: never = yieldReason;
@@ -69,7 +69,7 @@ export function explainReachingDefinitions(yieldReason: YieldReason): Explanatio
         case "in-computed":
             return [{kind: 'text', content: 'Berechne die neue In-Menge durch:'}, {
                 kind: 'math',
-                content: '\\(in(node) := \\bigcup_{p \\in nachfolger(node)}out(p)\\)'
+                content: '\\(in(node) := \\bigcup_{p \\in vorgaenger(node)}out(p)\\)'
             }];
         case "out-computed":
             return [{kind: 'text', content: 'Berechne die neue Out-Menge durch:'}, {
