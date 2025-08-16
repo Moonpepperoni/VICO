@@ -42,7 +42,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
                 });
             });
 
-            const newOut = inSets.getValueRaw(currentNodeId)!;
+            const newOut = outSets.getValueRaw(currentNodeId)!;
             if (!genKillSetEqual(oldOut, newOut)) changed = true;
             yield convertToReachingDefinitionsState(currentNodeId, 'out-computed', cfg.nodes, genSets, killSets, inSets, outSets);
         }
