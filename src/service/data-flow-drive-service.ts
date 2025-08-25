@@ -22,12 +22,12 @@ export type FlowAlgorithmSelector =
     | { kind: "constant-propagation-basic-blocks" };
 
 class AlgorithmExecutionEngine<T> {
+    readonly algoName: FlowAlgorithmSelector["kind"];
     private readonly stepper: GeneratorStepper<T>;
     private readonly cfg: ControlFlowGraph;
     private readonly converter: ConversionFunction<T>;
-    readonly algoName : FlowAlgorithmSelector["kind"];
 
-    private constructor(stepper: GeneratorStepper<T>, cfg: ControlFlowGraph, converter: ConversionFunction<T>, algoName : FlowAlgorithmSelector["kind"]) {
+    private constructor(stepper: GeneratorStepper<T>, cfg: ControlFlowGraph, converter: ConversionFunction<T>, algoName: FlowAlgorithmSelector["kind"]) {
         this.stepper = stepper;
         this.cfg = cfg;
         this.converter = converter;
@@ -88,14 +88,18 @@ class AlgorithmExecutionEngine<T> {
 
 export class DataFlowDriveService {
     private engine: AlgorithmExecutionEngine<LivenessState> | AlgorithmExecutionEngine<ConstantPropagationState> | AlgorithmExecutionEngine<ReachingDefinitionsState> | undefined;
-    private currentProgram: { validity : 'valid', tacProgram : TacProgram, programText : string } | { validity : 'invalid', errors : Array<{ line : number, reason : string }>, programText : string } | undefined;
+    private currentProgram: { validity: 'valid', tacProgram: TacProgram, programText: string } | {
+        validity: 'invalid',
+        errors: Array<{ line: number, reason: string }>,
+        programText: string
+    } | undefined;
 
-    constructor(initialProgramText : string) {
+    constructor(initialProgramText: string) {
         this.currentProgram = undefined;
         this.trySetNewProgram(initialProgramText);
     }
 
-    get errors(): Array<{ line : number, reason : string }> | undefined {
+    get errors(): Array<{ line: number, reason: string }> | undefined {
         return this.currentProgram?.validity === 'invalid' ? this.currentProgram.errors : undefined;
     }
 
@@ -103,7 +107,7 @@ export class DataFlowDriveService {
         return this.currentProgram?.programText;
     }
 
-    get currentAlgorithm() : FlowAlgorithmSelector["kind"] | undefined {
+    get currentAlgorithm(): FlowAlgorithmSelector["kind"] | undefined {
         return this.engine?.algoName;
     }
 
@@ -123,7 +127,10 @@ export class DataFlowDriveService {
             this.currentProgram = {validity: 'valid', tacProgram: readProgramFromText(programText), programText};
         } catch (error) {
             if (error instanceof TacCollectiveError) {
-                const errors = error.errors.map(e => ({line: e.line, reason: e.reason})).sort((a, b) => a.line - b.line) as Array<{ line : number, reason : string }>;
+                const errors = error.errors.map(e => ({
+                    line: e.line,
+                    reason: e.reason
+                })).sort((a, b) => a.line - b.line) as Array<{ line: number, reason: string }>;
                 this.currentProgram = {validity: 'invalid', errors, programText};
                 return errors;
             } else {
@@ -169,7 +176,7 @@ function convertConstantPropagationToFlowOut(cfg: ControlFlowGraph, constantProp
 
     for (const nodeId of cfg.nodeIds) {
         const nodeData = constantPropagationState.state.get(nodeId)!;
-        const instructions = cfg.getNodeInstructions(nodeId)?.map(i => i.toString()) ?? [];
+
 
         const inMap: FlowValue = {
             lookedAt: nodeData.inMap.lookedAt,
@@ -207,6 +214,11 @@ function convertConstantPropagationToFlowOut(cfg: ControlFlowGraph, constantProp
 
         const perNodeValues = new Map<string, FlowValue>();
 
+        // all other nodes have instructions
+        const instructions = [...cfg.getNodeInstructions(nodeId)!].map(([, instr]) => {
+            return {marker: "", instruction: instr.toString()}
+        }) ?? [];
+
         nodes.push({
             isCurrent: constantPropagationState.currentNodeId === nodeId,
             kind: "node",
@@ -238,7 +250,7 @@ function convertReachingToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsStat
 
     for (const nodeId of cfg.nodeIds) {
         const nodeData = reachingDefinitionsState.state.get(nodeId)!;
-        const instructions = cfg.getNodeInstructions(nodeId)?.map(i => i.toString()) ?? [];
+
         const inSet: FlowValue = {
             lookedAt: nodeData.inSet.lookedAt,
             changed: nodeData.inSet.changed,
@@ -286,6 +298,11 @@ function convertReachingToFlowOut(cfg: ControlFlowGraph, reachingDefinitionsStat
 
         const perNodeValues = new Map<string, FlowValue>([["gen", genSet], ["kill", killSet]]);
 
+        // all other nodes have instructions
+        const instructions = [...cfg.getNodeInstructions(nodeId)!].map(([id, instr]) => {
+            return {marker: reachingDefinitionsState.instructionGenNames.get(id) ?? "", instruction: instr.toString()}
+        }) ?? [];
+
         nodes.push({
             isCurrent: reachingDefinitionsState.currentNodeId === nodeId,
             kind: "node",
@@ -316,7 +333,6 @@ function convertLivenessToFlowOut(cfg: ControlFlowGraph, livenessState: Liveness
 
     for (const nodeId of cfg.nodeIds) {
         const nodeData = livenessState.state.get(nodeId)!;
-        const instructions = cfg.getNodeInstructions(nodeId)?.map(i => i.toString()) ?? [];
         const inSet: FlowValue = {
             lookedAt: nodeData.inSet.lookedAt,
             changed: nodeData.inSet.changed,
@@ -364,6 +380,11 @@ function convertLivenessToFlowOut(cfg: ControlFlowGraph, livenessState: Liveness
 
         const perNodeValues = new Map<string, FlowValue>([["use", useSet], ["def", defSet]]);
 
+        // all other nodes have instructions
+        const instructions = [...cfg.getNodeInstructions(nodeId)!].map(([, instr]) => {
+            return {marker: "", instruction: instr.toString()}
+        }) ?? [];
+
         nodes.push({
             isCurrent: livenessState.currentNodeId === nodeId,
             kind: "node",
@@ -400,7 +421,7 @@ export type FlowDataNodeState = {
     isCurrent: boolean,
     id: number,
     kind: "node",
-    instructions: Array<string>,
+    instructions: Array<{ marker: string, instruction: string }>,
     inValue: FlowValue,
     outValue: FlowValue,
     perNodeValues: Map<string, FlowValue>

@@ -84,10 +84,10 @@ export class BasicBlockControlFlowGraph implements ControlFlowGraph {
         return this.predecessors;
     }
 
-    getNodeInstructions(nodeId: number): Array<TacInstruction> {
+    getNodeInstructions(nodeId: number): Map<number, TacInstruction> {
         const block = this.basicBlocks.get(nodeId);
-        if (block === undefined) return [];
-        return block.instructionIds.map(id => this.tacProgram.getInstructionById(id)!);
+        if (block === undefined) return new Map();
+        return new Map(block.instructionIds.map(id => [id, this.tacProgram.getInstructionById(id)!]));
     }
 
     isBackEdge(from: number, to: number): boolean {

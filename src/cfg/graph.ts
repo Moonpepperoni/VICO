@@ -10,7 +10,7 @@ export interface ControlFlowGraph {
 
     getNodeSuccessors(nodeId: number): Set<number> | undefined;
 
-    getNodeInstructions(nodeId: number): Array<TacInstruction> | undefined;
+    getNodeInstructions(nodeId: number): Map<number, TacInstruction> | undefined;
 
     isBackEdge(from: number, to: number): boolean;
 

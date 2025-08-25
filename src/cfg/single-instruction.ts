@@ -45,10 +45,9 @@ export class SingleInstructionGraph implements ControlFlowGraph {
         return this.predecessors;
     }
 
-    getNodeInstructions(nodeId: number): Array<TacInstruction> {
-        return this.tacProgram.instructions
-            .filter(([id, ]) => id == nodeId)
-            .map(([, instr]) => instr);
+    getNodeInstructions(nodeId: number): Map<number, TacInstruction> {
+        return new Map(this.tacProgram.instructions
+            .filter(([id, ]) => id == nodeId));
     }
 
     isBackEdge(from: number, to: number): boolean {

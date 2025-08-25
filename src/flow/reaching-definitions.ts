@@ -10,7 +10,7 @@ export function* ReachingDefinitions(input: ReachingDefinitionsInput): Generator
 
     const iterationOrder = getTopologicalOrder(input.cfg);
 
-    yield convertToReachingDefinitionsState(undefined, 'initialized', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
+    yield convertToReachingDefinitionsState(undefined, 'initialized', input.cfg.nodeIds, genSets, killSets, inSets, outSets, input.instructionGenNames);
 
     let changed = true;
     while (changed) {
@@ -29,7 +29,7 @@ export function* ReachingDefinitions(input: ReachingDefinitionsInput): Generator
                 });
             });
             const oldOut = outSets.getValueRaw(currentNodeId)!;
-            yield convertToReachingDefinitionsState(currentNodeId, 'in-computed', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
+            yield convertToReachingDefinitionsState(currentNodeId, 'in-computed', input.cfg.nodeIds, genSets, killSets, inSets, outSets, input.instructionGenNames);
             const currentGenSet = genSets.getValue(currentNodeId);
             const currentKillSet = killSets.getValue(currentNodeId);
             // compute new outSet
@@ -45,10 +45,10 @@ export function* ReachingDefinitions(input: ReachingDefinitionsInput): Generator
 
             const newOut = outSets.getValueRaw(currentNodeId)!;
             if (!genKillSetEqual(oldOut, newOut)) changed = true;
-            yield convertToReachingDefinitionsState(currentNodeId, 'out-computed', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
+            yield convertToReachingDefinitionsState(currentNodeId, 'out-computed', input.cfg.nodeIds, genSets, killSets, inSets, outSets, input.instructionGenNames);
         }
     }
-    yield convertToReachingDefinitionsState(undefined, 'ended', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
+    yield convertToReachingDefinitionsState(undefined, 'ended', input.cfg.nodeIds, genSets, killSets, inSets, outSets, input.instructionGenNames);
 }
 
 function extractDataFromStore(store: ReachingDefinitionsDataStore, nodeId: number): ReachingsDefinitionsSetData {
@@ -57,7 +57,7 @@ function extractDataFromStore(store: ReachingDefinitionsDataStore, nodeId: numbe
     return {data: copy, changed: store.hasChanged(nodeId), lookedAt: store.wasLookedAt(nodeId)};
 }
 
-function convertToReachingDefinitionsState(currentNodeId: number | undefined, reason: YieldReason, nodes: Array<number>, genSets: FlowObserveStore<Set<string>>, killSets: FlowObserveStore<Set<string>>, inSets: FlowObserveStore<Set<string>>, outSets: FlowObserveStore<Set<string>>) {
+function convertToReachingDefinitionsState(currentNodeId: number | undefined, reason: YieldReason, nodes: Array<number>, genSets: FlowObserveStore<Set<string>>, killSets: FlowObserveStore<Set<string>>, inSets: FlowObserveStore<Set<string>>, outSets: FlowObserveStore<Set<string>>, instructionGenNames: Map<number, string>) {
     const stateData = new Map<number, ReachingDefinitionsNodeData>();
     for (const node of nodes) {
         const genSet = extractDataFromStore(genSets, node);
@@ -70,7 +70,7 @@ function convertToReachingDefinitionsState(currentNodeId: number | undefined, re
     killSets.resetObserve();
     inSets.resetObserve();
     outSets.resetObserve();
-    return {currentNodeId, reason, state: stateData};
+    return {currentNodeId, reason, state: stateData, instructionGenNames};
 }
 
 type ReachingDefinitionsDataStore = FlowObserveStore<Set<string>>;
@@ -79,21 +79,23 @@ export type ReachingDefinitionsState = {
     reason: YieldReason,
     currentNodeId: number | undefined,
     state: Map<number, ReachingDefinitionsNodeData>,
+    instructionGenNames: Map<number, string>,
 }
 
 export type ReachingDefinitionsNodeData = {
     genSet: ReachingsDefinitionsSetData,
     killSet: ReachingsDefinitionsSetData,
     inSet: ReachingsDefinitionsSetData,
-    outSet: ReachingsDefinitionsSetData
+    outSet: ReachingsDefinitionsSetData,
 };
 
 export type ReachingsDefinitionsSetData = { data: Set<string>, lookedAt: boolean, changed: boolean };
 
 export type ReachingDefinitionsInput = {
-    cfg : ControlFlowGraph,
+    cfg: ControlFlowGraph,
     gen: Map<number, Set<string>>,
     kill: Map<number, Set<string>>,
+    instructionGenNames: Map<number, string>,
 };
 
 function genKillSetEqual(s1: Set<string>, s2: Set<string>): boolean {
@@ -116,20 +118,21 @@ function convertToObserveStores(input: ReachingDefinitionsInput,) {
     return {genSets, killSets, inSets, outSets};
 }
 
-function getAllBlockGens(basicBlocks: Map<number, Array<TacInstruction>>) {
+function getAllBlockGens(basicBlocks: Map<number, Map<number, TacInstruction>>) {
     const blockGens = new Map<number, Map<string, string>>();
     const instructionGenNames = new Map<number, string>();
     let genNumber = 1;
 
     for (const [id, block] of basicBlocks.entries()) {
         const thisBlockGens = new Map<string, string>();
-        for (const instruction of block) {
+        for (const [id, instruction] of block) {
             const variable = extractGenFromInstruction(instruction);
             if (variable !== undefined) {
                 const genName = `d${genNumber}`;
                 // this will automatically remove gens that are no longer valid
                 thisBlockGens.set(variable, genName);
                 genNumber++;
+                instructionGenNames.set(id, genName);
             }
         }
         blockGens.set(id, thisBlockGens);
@@ -172,7 +175,7 @@ function getAllBlockKills(blockGens: Map<number, Map<string, string>>, variableG
 }
 
 // TODO: rework this, to align with definition in dragon book
-export function extractGenAndKillFromBasicBlocks(basicBlocks: Map<number, Array<TacInstruction>>): {
+export function extractGenAndKillFromBasicBlocks(basicBlocks: Map<number, Map<number, TacInstruction>>): {
     genSets: Map<number, Set<string>>,
     killSets: Map<number, Set<string>>,
     instructionGenNames: Map<number, string>,

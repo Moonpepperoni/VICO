@@ -66,7 +66,7 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
                             <h6 className="border-bottom pb-1 mb-2">{"Instruktion" + (data.instructions.length > 1 ? "en" : "")}</h6>
                             {data.instructions.map((i, index) => (
                                 <pre key={index} className="mb-1 code-block">
-                                <code>{i}</code>
+                                <code>{i.marker !== '' && `${i.marker} | `}{i.instruction}</code>
                             </pre>
                             ))}
                         </div>
