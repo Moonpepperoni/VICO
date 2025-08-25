@@ -1,8 +1,8 @@
 import {Handle, type Node, type NodeProps, Position} from '@xyflow/react';
-import type {FlowNodeData, FlowValue, FlowValueData} from "./service/flow-service.ts";
 import {Badge, Card} from 'react-bootstrap';
+import type {FlowNodeState, FlowValue, FlowValueData} from "./service/data-flow-drive-service.ts";
 
-type FlowNode = Node<FlowNodeData, 'number'>;
+type FlowNode = Node<FlowNodeState, 'number'>;
 
 function flowValueToString(value : FlowValueData) : string {
     switch (value.type) {

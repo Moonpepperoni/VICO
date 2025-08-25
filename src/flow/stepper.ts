@@ -3,7 +3,7 @@
  * Der Cache speichert bis zu `cacheSize` aufeinanderfolgende Werte des Generators.
  * Intern wird immer ein Wert im Voraus geladen, was aber nach außen transparent ist.
  */
-export class GeneratorCache<T> {
+export class GeneratorStepper<T> {
     private generator: Iterator<T>;
     private readonly cache: T[] = [];
     private isGeneratorDone: boolean;
@@ -40,12 +40,11 @@ export class GeneratorCache<T> {
         // update wantedCacheSize to the number of loop values
         this.cacheSize = i;
         this.usableCacheSize = Math.min(i, Math.max(wantedCacheSize, 1));
-        // no value was loaded yet
-        this.currentIndex = -1;
+        this.currentIndex = 0;
     }
 
     currentValue(): T | undefined {
-        if (this.currentIndex < 0 || this.currentIndex >= this.cacheSize) return undefined;
+        if (this.currentIndex >= this.cacheSize) return undefined;
         return this.cache[this.currentIndex];
     }
 

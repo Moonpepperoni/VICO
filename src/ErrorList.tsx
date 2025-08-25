@@ -1,9 +1,8 @@
 import React from "react";
-import type {TacError} from "./tac/tac-errors.ts";
 import {Badge, Card, ListGroup} from 'react-bootstrap';
 
 interface ErrorListProps {
-    errors: Array<TacError>;
+    errors: Array<{line: number, reason : string}>;
 }
 
 export const ErrorList: React.FC<ErrorListProps> = ({errors}) => {

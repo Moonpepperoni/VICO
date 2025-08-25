@@ -1,5 +1,5 @@
 import {expect, test} from "vitest";
-import {LivenessAnalysis, type LivenessCFG, type LivenessState} from "./liveness.ts";
+import {LivenessAnalysis, type LivenessInput, type LivenessState} from "./liveness.ts";
 import {enableMapSet} from "immer";
 
 // must be enabled for the tests
@@ -47,7 +47,7 @@ class LivenessCFGBuilder {
         this.edges.set(nodeId, new Set(targets));
     }
 
-    build(): LivenessCFG {
+    build(): LivenessInput {
         return {
             use: this.useSets,
             def: this.defSets,
@@ -121,7 +121,7 @@ function getFinalState(analysis: Generator<LivenessState>) {
     return finalState;
 }
 
-function testLivenessHelper(name: string, testCFG : LivenessCFG, expectedIn : Map<number, Set<string>>, expectedOut : Map<number,Set<string>>) {
+function testLivenessHelper(name: string, testCFG : LivenessInput, expectedIn : Map<number, Set<string>>, expectedOut : Map<number,Set<string>>) {
     test(`should yield correct final in for ${name}`, () => {
         const analysis = LivenessAnalysis(testCFG, new Set());
         const finalState = getFinalState(analysis);

@@ -1,5 +1,4 @@
 import React, {useState} from "react";
-import {TacError} from "./tac/tac-errors.ts";
 import CodeMirror from '@uiw/react-codemirror';
 import {EditorView} from '@codemirror/view';
 import {ErrorList} from "./ErrorList";
@@ -19,9 +18,8 @@ const threeAddressCodeTheme = EditorView.theme({
 interface FileContentAreaProps {
     fileName: string;
     fileContent: string;
-    programErrors: Array<TacError>;
+    programErrors: Array<{line: number, reason : string}>;
     onSave?: (newContent: string) => void;
-    onChange?: () => void;
 }
 
 export const FileContentArea: React.FC<FileContentAreaProps> = ({
@@ -29,14 +27,12 @@ export const FileContentArea: React.FC<FileContentAreaProps> = ({
                                                                     programErrors,
                                                                     fileName,
                                                                     onSave,
-                                                                    onChange,
                                                                 }) => {
     const [fileContent, setFileContent] = useState(initialFileContent);
     const [isModified, setIsModified] = useState(false);
 
     const handleContentChange = (value: string) => {
         setFileContent(value);
-        if (!isModified) onChange?.();
         setIsModified(true);
     };
 

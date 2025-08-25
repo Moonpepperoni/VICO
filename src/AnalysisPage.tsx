@@ -1,87 +1,80 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useState} from 'react';
 import {AlgorithmMenu} from './AlgorithmMenu';
 import {FlowVisualisationArea} from './FlowVisualisationArea.tsx';
 import {FileContentArea} from "./FileContentArea.tsx";
-import {TacCollectiveError, type TacError} from "./tac/tac-errors.ts";
-import {readProgramFromText, TacProgram} from "./tac/program.ts";
-import type {FlowAlgorithmSelector} from "./service/flow-service.ts";
+import type {FlowAlgorithmSelector} from "./service/data-flow-drive-service.ts";
+import {useDataFlowService} from "./DataFlowDriveServiceHook.tsx";
+import {PreAlgoModal} from "./PreAlgoModal.tsx";
 
 export const AnalysisPage: React.FC<{
     fileName: string;
     fileContent: string;
     onBackToWelcome: () => void
-}> = ({fileName, fileContent: initialFileContent, onBackToWelcome}) => {
-    const [isMenuVisible, setIsMenuVisible] = useState(true);
-    const [selectedAlgorithm, setSelectedAlgorithm] = useState<FlowAlgorithmSelector["kind"] | null>(null);
-    const [fileContent, setFileContent] = useState(initialFileContent);
-    const [programErrors, setProgramErrors] = useState<Array<TacError>>([]);
-    const hasUnsavedChanges = useRef(false);
-    const program = useRef<TacProgram | undefined>(undefined);
-
-    useEffect(() => {
-        try {
-            program.current = readProgramFromText(fileContent);
-            setProgramErrors([]);
-        } catch (error) {
-            console.error("Error parsing content:", error);
-            if (error instanceof TacCollectiveError) {
-                setProgramErrors(error.errors);
-                program.current = undefined;
-            }
-        }
-    }, [fileContent]);
+}> = ({fileName, fileContent, onBackToWelcome}) => {
+    const [algoSelectionMenuVisible, setAlgoSelectionMenuVisible] = useState(true);
+    const [preSelectedAlgorithm, setPreSelectedAlgorithm] = useState<FlowAlgorithmSelector["kind"] | null>(null);
+    const {state, stepForward, stepBackward, stepToEnd, setProgramText, deselectAlgorithm, setAlgorithm} = useDataFlowService({initialProgramText: fileContent});
+    const {programErrors, currentAlgorithm, currentValue, canStepForward, canStepBackward, programText} = state;
 
     const toggleMenu = () => {
-        setIsMenuVisible(!isMenuVisible);
+        setAlgoSelectionMenuVisible(!algoSelectionMenuVisible);
     };
 
-    const handleInputChanged = () => {
-        hasUnsavedChanges.current = true;
+    const handleCloseAlgoStart = () => {
+        setPreSelectedAlgorithm(null);
     }
 
     const handleAlgorithmSelect = (algorithm: FlowAlgorithmSelector["kind"]) => {
-        setSelectedAlgorithm(algorithm);
-        setIsMenuVisible(false);
+        setPreSelectedAlgorithm(algorithm);
+        setAlgoSelectionMenuVisible(false);
+    }
+
+    const handleAlgorithmStart = (selector : FlowAlgorithmSelector, requested: boolean) => {
+        setPreSelectedAlgorithm(null);
+        setAlgorithm(selector);
     }
 
     // Function to handle file content saving and parsing
     const handleSaveContent = useCallback(async (newContent: string) => {
-        hasUnsavedChanges.current = false;
-        setFileContent(newContent);
-    }, []);
+        setProgramText(newContent);
+    }, [setProgramText]);
 
     return (<div className="d-flex h-100">
         {/* Collapsible Algorithm Menu */}
         <AlgorithmMenu
-            isVisible={isMenuVisible}
+            isVisible={algoSelectionMenuVisible}
             onToggle={toggleMenu}
             onBackToWelcome={onBackToWelcome}
-            selectedAlgorithm={selectedAlgorithm}
+            selectedAlgorithm={preSelectedAlgorithm}
             onAlgorithmSelect={handleAlgorithmSelect}
         />
+
+        <PreAlgoModal selectedAlgorithm={preSelectedAlgorithm} handleClose={handleCloseAlgoStart} handleStart={handleAlgorithmStart} possibleVariables={new Set("a")}/>
 
         {/* Main Content Area */}
         <div className="flex-grow-1 d-flex">
             {/* Visualization Area */}
-            {selectedAlgorithm && program.current ? (
+            {currentAlgorithm !== undefined ? (
                     <FlowVisualisationArea
-                        program={program.current}
-                        selectedAlgorithm={selectedAlgorithm}
+                        selectedAlgorithm={currentAlgorithm}
+                        serviceValue={currentValue}
+                        canStepForward={canStepForward}
+                        canStepBackward={canStepBackward}
+                        stepForward={stepForward}
+                        stepBackward={stepBackward}
+                        stepToEnd={stepToEnd}
                         onEndRequest={() => {
-                            setSelectedAlgorithm(null);
-                            setFileContent(initialFileContent);
-                            setProgramErrors([]);
+                            deselectAlgorithm();
                         }}
                     />
             ) : (
                 <FileContentArea
-                    fileContent={fileContent}
+                    fileContent={programText || fileContent}
                     fileName={fileName}
                     programErrors={programErrors}
                     onSave={handleSaveContent}
-                    onChange={handleInputChanged}
                 />
             )}
         </div>
-    </div>);
+        </div>);
 };

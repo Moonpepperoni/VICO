@@ -2,6 +2,7 @@ import {type BinaryOperator, type TacInstruction, type UnaryOperator} from "../t
 import {FlowObserveStore} from "./observe.ts";
 import {produce} from "immer";
 import type {YieldReason} from "./common.ts";
+import {type ControlFlowGraph, getTopologicalOrder} from "../cfg/graph.ts";
 
 type Definition = {
     kind: 'copy',
@@ -118,11 +119,11 @@ function extractDefinitionFromInstruction(instruction: TacInstruction): Definiti
     }
 }
 
-export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
-    const {definitions, inMaps, outMaps} = convertToObserveStores(cfg);
-    const iterationOrder = getTopologicalOrder(cfg.entryId, cfg);
+export function* ConstantPropagation(input: ConstantPropagationInput) {
+    const {definitions, inMaps, outMaps} = convertToObserveStores(input);
+    const iterationOrder = getTopologicalOrder(input.cfg);
 
-    yield convertToConstantPropagationState(undefined, 'initialized', cfg.nodes, inMaps, outMaps);
+    yield convertToConstantPropagationState(undefined, 'initialized', input.cfg.nodeIds, inMaps, outMaps);
     let changed = true;
     while (changed) {
         changed = false;
@@ -131,14 +132,14 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
             inMaps.changeWith(currentNodeId, (prevSet) => {
                 return produce(prevSet, (newInMap) => {
                     // compute meet operator over all predecessor maps
-                    const predecessors = cfg.predecessors.get(currentNodeId);
+                    const predecessors = input.cfg.getNodePredecessors(currentNodeId);
                     if (predecessors === undefined) return;
                     for (const predecessor of predecessors) {
                         outMaps.getValue(predecessor)?.forEach((value, key) => newInMap.set(key, meetOperator(newInMap.get(key) ?? {kind: 'UNDEF'}, value)));
                     }
                 });
             });
-            yield convertToConstantPropagationState(currentNodeId, 'in-computed', cfg.nodes, inMaps, outMaps);
+            yield convertToConstantPropagationState(currentNodeId, 'in-computed', input.cfg.nodeIds, inMaps, outMaps);
             const currentDefinitions = definitions.getValue(currentNodeId);
             // this must exist because we initialize the inMaps for all possible ids
             const newIn = inMaps.getValue(currentNodeId)!;
@@ -163,13 +164,13 @@ export function* ConstantPropagation(cfg: ConstantPropagationCFG) {
             const newOut = outMaps.getValueRaw(currentNodeId)!;
 
             if (!inOutMapsEqual(oldOut, newOut)) changed = true;
-            yield convertToConstantPropagationState(currentNodeId, 'out-computed', cfg.nodes, inMaps, outMaps);
+            yield convertToConstantPropagationState(currentNodeId, 'out-computed', input.cfg.nodeIds, inMaps, outMaps);
         }
     }
-    yield convertToConstantPropagationState(undefined, 'ended' , cfg.nodes, inMaps, outMaps);
+    yield convertToConstantPropagationState(undefined, 'ended' , input.cfg.nodeIds, inMaps, outMaps);
 }
 
-function convertToConstantPropagationState(currentNodeId: number | undefined, reason: YieldReason, nodes: Array<number>, inMaps: FlowObserveStore<InOutMap>, outMaps: FlowObserveStore<InOutMap>) {
+function convertToConstantPropagationState(currentNodeId: number | undefined, reason: YieldReason, nodes: Array<number>, inMaps: FlowObserveStore<InOutMap>, outMaps: FlowObserveStore<InOutMap>) : ConstantPropagationState {
     const stateData = new Map<number, ConstantPropagationNodeData>();
     for (const node of nodes) {
         const inMap = extractDataFromStore(inMaps, node);
@@ -309,27 +310,13 @@ function meetInstruction(inMap: Map<string, PropagationValue>, def: Definition):
     }
 }
 
-function getTopologicalOrder(entryId: number, cfg: ConstantPropagationCFG): Array<number> {
-    const nodeOrder = [];
-    const visited = new Set();
-    const shouldVisit = [entryId];
-    while (shouldVisit.length !== 0) {
-        const newNode = shouldVisit.shift()!;
-        if (visited.has(newNode)) continue;
-        visited.add(newNode);
 
-        const follow = cfg.successors.get(newNode);
-        if (follow !== undefined) shouldVisit.push(...follow);
-        nodeOrder.push(newNode);
-    }
-    return nodeOrder;
-}
 
-function convertToObserveStores(cfg: ConstantPropagationCFG) {
-    const definitions: DefinitionArrayStore = new FlowObserveStore(cfg.definitions, definitionsArrayEqual);
+function convertToObserveStores(input: ConstantPropagationInput) {
+    const definitions: DefinitionArrayStore = new FlowObserveStore(input.definitions, definitionsArrayEqual);
     const inSetsRaw = new Map();
     const outSetsRaw = new Map();
-    for (const node of cfg.nodes) {
+    for (const node of input.cfg.nodeIds) {
         inSetsRaw.set(node, new Map());
         outSetsRaw.set(node, new Map());
     }
@@ -339,12 +326,8 @@ function convertToObserveStores(cfg: ConstantPropagationCFG) {
     return {definitions, inMaps, outMaps};
 }
 
-export type ConstantPropagationCFG = {
-    entryId: number,
-    exitId: number,
-    successors: Map<number, Set<number>>,
-    predecessors: Map<number, Set<number>>,
-    nodes: Array<number>,
+export type ConstantPropagationInput = {
+    cfg : ControlFlowGraph,
     definitions: Map<number, Array<Definition>>,
 };
 

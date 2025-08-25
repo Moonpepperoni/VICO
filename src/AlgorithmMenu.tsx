@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Alert, Stack, Container } from 'react-bootstrap';
-import type {FlowAlgorithmSelector} from "./service/flow-service.ts";
+import type {FlowAlgorithmSelector} from "./service/data-flow-drive-service.ts";
 
 interface AlgorithmMenuProps {
     isVisible: boolean;

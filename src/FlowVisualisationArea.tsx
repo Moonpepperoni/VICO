@@ -1,67 +1,71 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {FlowGraph} from "./FlowGraph.tsx";
-import type {TacProgram} from "./tac/program.ts";
 import {applyNodeChanges, type Edge, type Node, type NodeChange, ReactFlowProvider} from "@xyflow/react";
-import {type FlowAlgorithmSelector, type FlowService, type FlowState,} from "./service/flow-service.ts";
 import {Alert, Button, ButtonGroup, Card,} from "react-bootstrap";
 import convertToReactFlow from "./converter.ts";
 import useLayout from "./LayoutHook.tsx";
-import {PreAlgoModal} from "./PreAlgoModal.tsx";
-import type {Explanation} from "./explanation/engine.ts";
 import {MathRenderer} from "./MathRenderer.tsx";
+import type {FlowAlgorithmSelector, FlowState} from "./service/data-flow-drive-service.ts";
 
 interface VisualizationAreaProps {
-    program: TacProgram;
+    serviceValue: FlowState | undefined;
+    canStepForward: boolean;
+    canStepBackward: boolean;
+    stepForward: () => void;
+    stepBackward: () => void;
+    stepToEnd: () => void;
     selectedAlgorithm: FlowAlgorithmSelector["kind"];
     onEndRequest: () => void;
 }
 
-type ExecutionState = {
-    phase: "prerunning", explanation: Explanation,
-} | {
-    phase: "running", serviceValue: FlowState | undefined, hasNext: boolean, hasPrevious: boolean,
-};
-
-const startState: ExecutionState = {
-    phase: "prerunning", explanation: [{kind: 'text', content: "Hier wird eine Erklärung angezeigt"}]
-};
-
-export const FlowVisualisationArea: React.FC<VisualizationAreaProps> = ({program, selectedAlgorithm, onEndRequest}) => {
+export const FlowVisualisationArea: React.FC<VisualizationAreaProps> = ({
+                                                                            selectedAlgorithm, onEndRequest,
+                                                                            serviceValue,
+                                                                            canStepForward,
+                                                                            canStepBackward,
+                                                                            stepForward,
+                                                                            stepBackward,
+                                                                            stepToEnd,
+                                                                        }) => {
     return <ReactFlowProvider>
-        <DisplayArea program={program} selectedAlgorithm={selectedAlgorithm} onEndRequest={onEndRequest}/>
+        <DisplayArea selectedAlgorithm={selectedAlgorithm} serviceValue={serviceValue} canStepForward={canStepForward}
+                     canStepBackward={canStepBackward} onEndRequest={onEndRequest} stepForward={stepForward}
+                     stepBackward={stepBackward} stepToEnd={stepToEnd}/>
     </ReactFlowProvider>
 };
 
-export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selectedAlgorithm, onEndRequest}) => {
+export const DisplayArea: React.FC<VisualizationAreaProps> = ({
+                                                                  selectedAlgorithm, onEndRequest,
+                                                                  serviceValue,
+                                                                  canStepForward,
+                                                                  canStepBackward,
+                                                                  stepForward,
+                                                                  stepBackward,
+                                                                  stepToEnd,
+                                                              }) => {
 
-    const flowService = useRef<FlowService | undefined>(undefined);
     const [nodes, setNodes] = useState<Array<Node>>([]);
     const [edges, setEdges] = useState<Array<Edge>>([]);
-    const [executionState, setExecutionState] = useState<ExecutionState>(startState);
 
     const {
         layoutedNodes,
         layoutedEdges
     } = useLayout({
         backEdges: new Set(
-            executionState.phase === 'running'
-            && executionState.serviceValue?.edges
+            serviceValue?.edges
                 .filter(e => e.isBackEdge)
                 .map(e => `${e.src}-${e.target}`)
             || [])
     });
 
     useEffect(() => {
-        setExecutionState(startState);
-    }, [program, selectedAlgorithm]);
-
-    useEffect(() => {
-        if (executionState.phase === 'prerunning' || executionState.serviceValue === undefined) {
+        if (serviceValue === undefined) {
             setNodes([]);
             setEdges([]);
             return;
         }
-        const {nodes, edges} = convertToReactFlow(executionState.serviceValue);
+        // we know serviceValue is defined here
+        const {nodes, edges} = convertToReactFlow(serviceValue!);
         setNodes((oldNodes) => {
             nodes.map((node) => {
                 const oldNode = oldNodes.find((n) => n.id === node.id);
@@ -73,7 +77,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
             return nodes;
         });
         setEdges(edges);
-    }, [executionState]);
+    }, [serviceValue]);
 
     useEffect(() => {
         if (layoutedNodes.length > 0) {
@@ -87,37 +91,6 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
         }
     }, [layoutedEdges]);
 
-    const onStart = (service: FlowService) => {
-        flowService.current = service;
-        service.advance();
-        updateStateFromService();
-    }
-
-
-    // Hilfsfunktion zur Synchronisierung von Service-Zustand und React-State
-    const updateStateFromService = useCallback(() => {
-        if (flowService.current) {
-            const hasNext = flowService.current.hasNext();
-            const hasPrevious = flowService.current.hasPrevious();
-            const serviceValue = flowService.current.currentValue();
-            setExecutionState({phase: "running", serviceValue, hasNext, hasPrevious});
-        }
-    }, []);
-
-    const advanceService = () => {
-        flowService.current?.advance();
-        updateStateFromService();
-    }
-
-    const advanceToEnd = () => {
-        flowService.current?.advanceToEnd();
-        updateStateFromService();
-    }
-
-    const goBack = () => {
-        flowService.current?.previous();
-        updateStateFromService();
-    }
 
     const onNodesChange = useCallback(
         (changes: NodeChange<Node>[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -126,8 +99,6 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
 
 
     return (<>
-        <PreAlgoModal program={program} selectedAlgorithm={selectedAlgorithm} handleClose={onEndRequest}
-                      show={executionState.phase === 'prerunning'} handleStart={onStart}/>
         <div
             className="flex-grow-1 position-relative"
             style={{
@@ -151,9 +122,9 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
                         <h6 className="mb-0">Aktueller Schritt</h6>
                     </Card.Header>
                     <Card.Body>
-                        {executionState.phase === 'prerunning' ?
-                            executionState.explanation.map(e => <p className="mb-0">{e.content}</p>) :
-                            executionState.serviceValue?.explanation.map(e => {
+                        {serviceValue?.explanation === undefined ?
+                            <p className="mb-0">Hier wird eine Erklärung angezeigt</p> :
+                            serviceValue?.explanation.map(e => {
                                 if (e.kind === 'text') {
                                     return <p className="mb-0">{e.content}</p>
                                 } else {
@@ -170,33 +141,32 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({program, selected
                 {/* Playback Controls */}
                 <div className="mb-3">
                     <div className="d-grid gap-2">
-                        {executionState.phase === "running" && <>
-                            <ButtonGroup>
-                                <Button
-                                    variant="outline-primary"
-                                    onClick={goBack}
-                                    disabled={!executionState.hasPrevious}
-                                >
-                                    ⏮ Vorheriger
-                                </Button>
-                                <Button
-                                    variant="outline-primary"
-                                    onClick={advanceService}
-                                    disabled={!executionState.hasNext}
-                                >
-                                    Nächster ⏭
-                                </Button>
-                            </ButtonGroup>
+                        <ButtonGroup>
                             <Button
-                                variant="secondary"
-                                onClick={advanceToEnd}
-                                disabled={!executionState.hasNext}
+                                variant="outline-primary"
+                                onClick={stepBackward}
+                                disabled={!canStepBackward}
                             >
-                                Zum Ende
+                                ⏮ Vorheriger
                             </Button>
-                            <Button variant="danger" onClick={onEndRequest}>
-                                Beenden
-                            </Button></>}
+                            <Button
+                                variant="outline-primary"
+                                onClick={stepForward}
+                                disabled={!canStepForward}
+                            >
+                                Nächster ⏭
+                            </Button>
+                        </ButtonGroup>
+                        <Button
+                            variant="secondary"
+                            onClick={stepToEnd}
+                            disabled={!canStepForward}
+                        >
+                            Zum Ende
+                        </Button>
+                        <Button variant="danger" onClick={onEndRequest}>
+                            Beenden
+                        </Button>
                     </div>
                 </div>
 

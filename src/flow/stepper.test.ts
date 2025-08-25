@@ -1,30 +1,30 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GeneratorCache } from './cache';
+import { GeneratorStepper } from './stepper.ts';
 
-describe('GeneratorCache', () => {
+describe('GeneratorStepper', () => {
     describe('Konstruktor und Initialisierung', () => {
-        test('sollte einen Cache mit Generator erstellen', () => {
+        test('sollte einen Stepper mit Generator erstellen', () => {
             function* generator() {
                 yield 1;
                 yield 2;
                 yield 3;
             }
 
-            const cache = new GeneratorCache(generator(), 2);
+            const cache = new GeneratorStepper(generator(), 2);
             expect(cache.usableCacheSize).toBe(2);
-            expect(cache.currentValue()).toBeUndefined();
+            expect(cache.currentValue()).toBe(1);
         });
 
         test('sollte einen Cache mit Iterable erstellen', () => {
             const iterable = [1, 2, 3, 4, 5];
-            const cache = new GeneratorCache(iterable, 3);
+            const cache = new GeneratorStepper(iterable, 3);
             expect(cache.usableCacheSize).toBe(3);
-            expect(cache.currentValue()).toBeUndefined();
+            expect(cache.currentValue()).toBe(1);
         });
 
         test('sollte die Cache-Größe auf mindestens 1 setzen', () => {
             const iterable = [1, 2, 3];
-            const cache = new GeneratorCache(iterable, -1);
+            const cache = new GeneratorStepper(iterable, -1);
             expect(cache.usableCacheSize).toBe(1);
         });
 
@@ -33,7 +33,7 @@ describe('GeneratorCache', () => {
                 // Keine Werte
             }
 
-            const cache = new GeneratorCache(emptyGenerator(), 2);
+            const cache = new GeneratorStepper(emptyGenerator(), 2);
             expect(cache.usableCacheSize).toBe(0);
             expect(cache.hasNext()).toBe(false);
             expect(cache.hasPrevious()).toBe(false);
@@ -45,25 +45,24 @@ describe('GeneratorCache', () => {
                 yield 2;
             }
 
-            const cache = new GeneratorCache(smallGenerator(), 5);
+            const cache = new GeneratorStepper(smallGenerator(), 5);
             expect(cache.usableCacheSize).toBe(2);
         });
     });
 
     describe('Navigation', () => {
-        let cache: GeneratorCache<number>;
+        let cache: GeneratorStepper<number>;
 
         beforeEach(() => {
             const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-            cache = new GeneratorCache(data, 3);
+            cache = new GeneratorStepper(data, 3);
         });
 
-        test('sollte currentValue undefined zurückgeben, wenn kein Wert geladen wurde', () => {
-            expect(cache.currentValue()).toBeUndefined();
+        test('sollte ersten Wert zurückgeben, wenn noch kein Schritt gemacht wurde', () => {
+            expect(cache.currentValue()).toBe(1);
         });
 
         test('sollte mit next() vorwärts navigieren', () => {
-            cache.next();
             expect(cache.currentValue()).toBe(1);
             cache.next();
             expect(cache.currentValue()).toBe(2);
@@ -72,7 +71,6 @@ describe('GeneratorCache', () => {
         });
 
         test('sollte mit previous() rückwärts navigieren', () => {
-            cache.next(); // 1
             cache.next(); // 2
             cache.next(); // 3
 
@@ -83,7 +81,6 @@ describe('GeneratorCache', () => {
         });
 
         test('sollte nicht hinter den Anfang zurückgehen können', () => {
-            cache.next(); // 1
             cache.previous(); // Sollte nichts ändern
             expect(cache.currentValue()).toBe(1);
             expect(cache.hasPrevious()).toBe(false);
@@ -93,7 +90,7 @@ describe('GeneratorCache', () => {
             expect(cache.hasNext()).toBe(true);
 
             // Navigiere durch alle Werte
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 9; i++) {
                 cache.next();
             }
 
@@ -104,26 +101,26 @@ describe('GeneratorCache', () => {
         test('sollte korrekt erkennen, ob ein vorheriger Wert verfügbar ist', () => {
             expect(cache.hasPrevious()).toBe(false);
 
-            cache.next(); // 1
-            expect(cache.hasPrevious()).toBe(false);
-
             cache.next(); // 2
             expect(cache.hasPrevious()).toBe(true);
+
+            cache.next(); // 3
+            expect(cache.hasPrevious()).toBe(true);
         });
+
     });
 
     describe('Cache-Fenster', () => {
         test('sollte das Cache-Fenster korrekt verschieben', () => {
             const data = [1, 2, 3, 4, 5, 6, 7, 8];
-            const cache = new GeneratorCache(data, 3);
+            const cache = new GeneratorStepper(data, 3);
 
             // Navigiere bis zum Ende des sichtbaren Cache-Fensters
-            cache.next(); // 1
             cache.next(); // 2
             cache.next(); // 3
 
             // Das nächste next() sollte das Fenster verschieben
-            cache.next();
+            cache.next(); // 4
             expect(cache.currentValue()).toBe(4);
 
             // Der erste Wert (1) sollte nicht mehr im Cache sein
@@ -135,7 +132,7 @@ describe('GeneratorCache', () => {
 
         test('sollte bei Erreichen des Generator-Endes undefined ausgeben', () => {
             const data = [1, 2, 3, 4, 5];
-            const cache = new GeneratorCache(data, 3);
+            const cache = new GeneratorStepper(data, 3);
 
             // Navigiere durch alle Werte
             for (let i = 0; i < 6; i++) {
@@ -155,10 +152,10 @@ describe('GeneratorCache', () => {
                 }
             }
 
-            const cache = new GeneratorCache(largeGenerator(), 5);
+            const cache = new GeneratorStepper(largeGenerator(), 5);
 
             // Navigiere durch viele Werte
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 99; i++) {
                 cache.next();
             }
 
@@ -175,9 +172,8 @@ describe('GeneratorCache', () => {
 
         test('sollte mit einem 1-Element-Cache umgehen können', () => {
             const data = [1, 2, 3, 4, 5];
-            const cache = new GeneratorCache(data, 1);
+            const cache = new GeneratorStepper(data, 1);
 
-            cache.next();
             expect(cache.currentValue()).toBe(1);
 
             cache.next();
@@ -187,9 +183,8 @@ describe('GeneratorCache', () => {
 
         test('sollte mit nicht-numerischen Werten umgehen können', () => {
             const data = ['a', 'b', 'c', 'd'];
-            const cache = new GeneratorCache(data, 2);
+            const cache = new GeneratorStepper(data, 2);
 
-            cache.next();
             expect(cache.currentValue()).toBe('a');
 
             cache.next();
@@ -206,9 +201,8 @@ describe('GeneratorCache', () => {
                 { id: 3, name: 'Drei' }
             ];
 
-            const cache = new GeneratorCache(data, 2);
+            const cache = new GeneratorStepper(data, 2);
 
-            cache.next();
             expect(cache.currentValue()).toEqual({ id: 1, name: 'Eins' });
 
             cache.next();

@@ -1,5 +1,5 @@
 import type {Edge, Node} from "@xyflow/react";
-import type {FlowEdgeData, FlowNodeData, FlowState} from "./service/flow-service.ts";
+import type {FlowEdge, FlowNodeState, FlowState} from "./service/data-flow-drive-service.ts";
 
 
 export default function convertToReactFlow(state: FlowState): { nodes: Array<Node>, edges: Array<Edge & {isBackEdge : boolean}> } {
@@ -10,7 +10,7 @@ export default function convertToReactFlow(state: FlowState): { nodes: Array<Nod
     }
 }
 
-function convertEdges(edges: Array<FlowEdgeData>): Array<Edge & {isBackEdge : boolean}> {
+function convertEdges(edges: Array<FlowEdge>): Array<Edge & {isBackEdge : boolean}> {
     return edges.map(edge => {
         return {
             type: "flow",
@@ -23,7 +23,7 @@ function convertEdges(edges: Array<FlowEdgeData>): Array<Edge & {isBackEdge : bo
 }
 
 
-function convertNodes(nodeData: Array<FlowNodeData>): Array<Node> {
+function convertNodes(nodeData: Array<FlowNodeState>): Array<Node> {
     return nodeData.map(node => {
         return {
             type: "flow",

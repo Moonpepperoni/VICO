@@ -2,14 +2,15 @@ import type {TacInstruction} from "../tac/parser-types.ts";
 import {FlowObserveStore} from "./observe.ts";
 import {produce} from "immer";
 import type {YieldReason} from "./common.ts";
+import {type ControlFlowGraph, getTopologicalOrder} from "../cfg/graph.ts";
 
 
-export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<ReachingDefinitionsState> {
-    const {genSets, killSets, inSets, outSets} = convertToObserveStores(cfg);
+export function* ReachingDefinitions(input: ReachingDefinitionsInput): Generator<ReachingDefinitionsState> {
+    const {genSets, killSets, inSets, outSets} = convertToObserveStores(input);
 
-    const iterationOrder = getTopologicalOrder(cfg.entryId, cfg);
+    const iterationOrder = getTopologicalOrder(input.cfg);
 
-    yield convertToReachingDefinitionsState(undefined, 'initialized', cfg.nodes, genSets, killSets, inSets, outSets);
+    yield convertToReachingDefinitionsState(undefined, 'initialized', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
 
     let changed = true;
     while (changed) {
@@ -20,7 +21,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
             inSets.changeWith(currentNodeId, (prevSet) => {
                 return produce(prevSet, (newSet) => {
                     // take union over all predecessor outsets
-                    const predecessors = cfg.predecessors.get(currentNodeId);
+                    const predecessors = input.cfg.getNodePredecessors(currentNodeId);
                     if (predecessors === undefined) return;
                     for (const predecessor of predecessors) {
                         outSets.getValue(predecessor)?.forEach((v) => newSet.add(v));
@@ -28,7 +29,7 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
                 });
             });
             const oldOut = outSets.getValueRaw(currentNodeId)!;
-            yield convertToReachingDefinitionsState(currentNodeId, 'in-computed', cfg.nodes, genSets, killSets, inSets, outSets);
+            yield convertToReachingDefinitionsState(currentNodeId, 'in-computed', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
             const currentGenSet = genSets.getValue(currentNodeId);
             const currentKillSet = killSets.getValue(currentNodeId);
             // compute new outSet
@@ -44,10 +45,10 @@ export function* ReachingDefinitions(cfg: ReachingDefinitionsCFG): Generator<Rea
 
             const newOut = outSets.getValueRaw(currentNodeId)!;
             if (!genKillSetEqual(oldOut, newOut)) changed = true;
-            yield convertToReachingDefinitionsState(currentNodeId, 'out-computed', cfg.nodes, genSets, killSets, inSets, outSets);
+            yield convertToReachingDefinitionsState(currentNodeId, 'out-computed', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
         }
     }
-    yield convertToReachingDefinitionsState(undefined, 'ended', cfg.nodes, genSets, killSets, inSets, outSets);
+    yield convertToReachingDefinitionsState(undefined, 'ended', input.cfg.nodeIds, genSets, killSets, inSets, outSets);
 }
 
 function extractDataFromStore(store: ReachingDefinitionsDataStore, nodeId: number): ReachingsDefinitionsSetData {
@@ -72,22 +73,6 @@ function convertToReachingDefinitionsState(currentNodeId: number | undefined, re
     return {currentNodeId, reason, state: stateData};
 }
 
-function getTopologicalOrder(entryId: number, cfg: ReachingDefinitionsCFG): Array<number> {
-    const nodeOrder = [];
-    const visited = new Set();
-    const shouldVisit = [entryId];
-    while (shouldVisit.length !== 0) {
-        const newNode = shouldVisit.shift()!;
-        if (visited.has(newNode)) continue;
-        visited.add(newNode);
-
-        const follow = cfg.successors.get(newNode);
-        if (follow !== undefined) shouldVisit.push(...follow);
-        nodeOrder.push(newNode);
-    }
-    return nodeOrder;
-}
-
 type ReachingDefinitionsDataStore = FlowObserveStore<Set<string>>;
 
 export type ReachingDefinitionsState = {
@@ -105,30 +90,26 @@ export type ReachingDefinitionsNodeData = {
 
 export type ReachingsDefinitionsSetData = { data: Set<string>, lookedAt: boolean, changed: boolean };
 
-export type ReachingDefinitionsCFG = {
-    entryId: number,
-    exitId: number,
+export type ReachingDefinitionsInput = {
+    cfg : ControlFlowGraph,
     gen: Map<number, Set<string>>,
     kill: Map<number, Set<string>>,
-    successors: Map<number, Set<number>>,
-    predecessors: Map<number, Set<number>>,
-    nodes: Array<number>,
 };
 
 function genKillSetEqual(s1: Set<string>, s2: Set<string>): boolean {
     return s1.size == s2.size && [...s1].every(v => s2.has(v));
 }
 
-function convertToObserveStores(cfg: ReachingDefinitionsCFG,) {
-    const genSets = new FlowObserveStore<Set<string>>(cfg.gen, genKillSetEqual);
-    const killSets = new FlowObserveStore<Set<string>>(cfg.kill, genKillSetEqual);
+function convertToObserveStores(input: ReachingDefinitionsInput,) {
+    const genSets = new FlowObserveStore<Set<string>>(input.gen, genKillSetEqual);
+    const killSets = new FlowObserveStore<Set<string>>(input.kill, genKillSetEqual);
     const inSetsRaw = new Map();
     const outSetsRaw = new Map();
-    for (const node of cfg.nodes) {
+    for (const node of input.cfg.nodeIds) {
         inSetsRaw.set(node, new Set());
         outSetsRaw.set(node, new Set());
     }
-    outSetsRaw.set(cfg.exitId, new Set());
+    outSetsRaw.set(input.cfg.exitId, new Set());
 
     const inSets = new FlowObserveStore<Set<string>>(inSetsRaw, genKillSetEqual);
     const outSets = new FlowObserveStore<Set<string>>(outSetsRaw, genKillSetEqual);
@@ -190,6 +171,7 @@ function getAllBlockKills(blockGens: Map<number, Map<string, string>>, variableG
     return blockKills;
 }
 
+// TODO: rework this, to align with definition in dragon book
 export function extractGenAndKillFromBasicBlocks(basicBlocks: Map<number, Array<TacInstruction>>): {
     genSets: Map<number, Set<string>>,
     killSets: Map<number, Set<string>>,

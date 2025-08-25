@@ -1,25 +1,23 @@
 import React, {type ChangeEvent, useState} from "react";
-import {type FlowAlgorithmSelector, type FlowService, getFlowServiceInstanceFor} from "./service/flow-service.ts";
 import {Button, Card, Form, Modal} from "react-bootstrap";
-import type {TacProgram} from "./tac/program.ts";
+import type {FlowAlgorithmSelector} from "./service/data-flow-drive-service.ts";
 
 
 export interface PreAlgoModalProps {
-    selectedAlgorithm: FlowAlgorithmSelector["kind"];
-    show: boolean;
+    selectedAlgorithm: FlowAlgorithmSelector["kind"] | null;
+    possibleVariables: Set<string>;
     handleClose: () => void;
-    handleStart: (service: FlowService) => void;
-    program: TacProgram;
+    handleStart: (selector: FlowAlgorithmSelector, practiceModeRequested: boolean) => void;
 }
 
 export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
-                                                              program,
                                                               selectedAlgorithm,
                                                               handleClose,
-                                                              show,
-                                                              handleStart
+                                                              handleStart,
+                                                              possibleVariables,
                                                           }) => {
     const [selectedVariables, setSelectedVariables] = useState<Set<string>>(new Set());
+    const [practiceMode, setPracticeMode] = useState<boolean>(false);
 
     const handleVariableToggle = (variable: string, checked: boolean) => {
         setSelectedVariables(prevState => {
@@ -35,33 +33,37 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
 
     const handleAllClicked = (event: ChangeEvent<HTMLInputElement>) => {
         if (event.target.checked) {
-            setSelectedVariables(new Set(program.usedVariables));
+            setSelectedVariables(new Set(possibleVariables));
         } else {
             setSelectedVariables(new Set());
         }
     }
 
+    const handlePracticeClicked = (event: ChangeEvent<HTMLInputElement>) => {
+        setPracticeMode(event.target.checked);
+    }
+
     const onStart = () => {
         switch (selectedAlgorithm) {
             case 'liveness-basic-blocks':
+                handleStart({kind: 'liveness-basic-blocks', liveOut: selectedVariables}, practiceMode);
+                break;
             case 'liveness-single-instruction':
-                handleStart(getFlowServiceInstanceFor(program, {
-                    kind: selectedAlgorithm,
-                    liveOut: selectedVariables,
-                }));
+                handleStart({kind: 'liveness-single-instruction', liveOut: selectedVariables}, practiceMode);
                 break;
             case 'reaching-definitions-basic-blocks':
-            case 'constant-propagation-basic-blocks':
-                handleStart(getFlowServiceInstanceFor(program, {kind: selectedAlgorithm}));
+                handleStart({kind: 'reaching-definitions-basic-blocks'}, practiceMode);
                 break;
-            default: {
-                const _exhaustiveCheck: never = selectedAlgorithm;
-                throw new Error(`Unknown algorithm: ${_exhaustiveCheck}`);
-            }
+            case 'constant-propagation-basic-blocks':
+                handleStart({kind: 'constant-propagation-basic-blocks'}, practiceMode);
         }
+
     };
 
     const algorithmName = (() => {
+        if (selectedAlgorithm === null) {
+            return 'No algorithm was selected';
+        }
         switch (selectedAlgorithm) {
             case 'liveness-basic-blocks':
                 return 'Liveness (Basic Blocks)';
@@ -79,6 +81,9 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
     })();
 
     const algorithmDescription = (() => {
+        if (selectedAlgorithm === null) {
+            return 'No algorithm was selected';
+        }
         switch (selectedAlgorithm) {
             case 'liveness-basic-blocks':
             case 'liveness-single-instruction':
@@ -95,7 +100,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
     })();
 
     return <Modal
-        show={show}
+        show={selectedAlgorithm !== null}
         onHide={handleClose}
         backdrop="static"
         keyboard={false}
@@ -122,9 +127,9 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
                         <Form.Label>Live-Out Variablen auswählen:</Form.Label>
                         <Form.Check key="all" type="checkbox" label="Alle Variablen"
-                                    checked={selectedVariables.size === program.usedVariables.size}
+                                    checked={selectedVariables.size === possibleVariables.size}
                                     onChange={handleAllClicked}/>
-                        {[...program.usedVariables].map((variable) => {
+                        {[...possibleVariables].map((variable) => {
                             return <Form.Check
                                 key={variable}
                                 type="checkbox"
@@ -134,9 +139,15 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
                             />
                         })}
                     </Form.Group>
+                    <Form.Group>
+                        <Form.Label>Übungsmodus einstellungen:</Form.Label>
+                        <Form.Check key='training' type="switch" label="Übungsmodus ein-/ausschalten"
+                                    defaultChecked={false} checked={practiceMode} onChange={handlePracticeClicked}/>
+                        <Form.Text>Der Übungsmodus hilft dabei das Verständnis zu festigen.</Form.Text>
+
+                    </Form.Group>
                 </Form>
             }
-
 
         </Modal.Body>
         <Modal.Footer>

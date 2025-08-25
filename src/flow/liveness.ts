@@ -2,14 +2,15 @@ import type {TacInstruction} from "../tac/parser-types.ts";
 import {FlowObserveStore} from "./observe.ts";
 import {produce} from "immer";
 import type {YieldReason} from "./common.ts";
+import {type ControlFlowGraph, getReverseTopologicalOrder} from "../cfg/graph.ts";
 
-export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Generator<LivenessState> {
+
+export function* LivenessAnalysis(input: LivenessInput, liveOut: Set<string>): Generator<LivenessState> {
     // setup all the required data and use auto change and look at
-    const {defSets, useSets, inSets, outSets} = convertToObserveStores(cfg, liveOut);
+    const {defSets, useSets, inSets, outSets} = convertToObserveStores(input, liveOut);
 
-    // we want the reverse topological order, due to the simple structure of the cfgs, we can use bfs here
-    const iterationOrder = getReverseTopologicalOrder(cfg.entryId, cfg);
-    yield convertToLivenessState(undefined, 'initialized', cfg.nodes, defSets, useSets, inSets, outSets);
+    const iterationOrder = getReverseTopologicalOrder(input.cfg);
+    yield convertToLivenessState(undefined, 'initialized', input.cfg.nodeIds, defSets, useSets, inSets, outSets);
 
     let changed = true;
     while (changed) {
@@ -20,14 +21,14 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
             outSets.changeWith(currentNodeId, (prevSet) => {
                 return produce(prevSet, (newSet) => {
                     // take union over all successor inSets
-                    const successors = cfg.edges.get(currentNodeId);
+                    const successors = input.cfg.getNodeSuccessors(currentNodeId);
                     if (successors === undefined) return;
                     for (const successorId of successors) {
                         inSets.getValue(successorId)?.forEach((v) => newSet.add(v));
                     }
                 });
             });
-            yield convertToLivenessState(currentNodeId, 'out-computed', cfg.nodes, defSets, useSets, inSets, outSets);
+            yield convertToLivenessState(currentNodeId, 'out-computed', input.cfg.nodeIds, defSets, useSets, inSets, outSets);
             const oldIn = inSets.getValueRaw(currentNodeId)!;
             const currentDefSet = defSets.getValue(currentNodeId);
             const currentUseSet = useSets.getValue(currentNodeId);
@@ -43,22 +44,22 @@ export function* LivenessAnalysis(cfg: LivenessCFG, liveOut: Set<string>): Gener
             });
             const newIn = inSets.getValueRaw(currentNodeId)!;
             if (!livenessSetEqual(oldIn, newIn)) changed = true;
-            yield convertToLivenessState(currentNodeId, 'in-computed', cfg.nodes, defSets, useSets, inSets, outSets);
+            yield convertToLivenessState(currentNodeId, 'in-computed', input.cfg.nodeIds, defSets, useSets, inSets, outSets);
         }
     }
-    yield convertToLivenessState(undefined, 'ended', cfg.nodes, defSets, useSets, inSets, outSets);
+    yield convertToLivenessState(undefined, 'ended', input.cfg.nodeIds, defSets, useSets, inSets, outSets);
 }
 
-function convertToObserveStores(cfg: LivenessCFG, liveOut: Set<string>) {
-    const defSets = new FlowObserveStore<Set<string>>(cfg.def, livenessSetEqual);
-    const useSets = new FlowObserveStore<Set<string>>(cfg.use, livenessSetEqual);
+function convertToObserveStores(input: LivenessInput, liveOut: Set<string>) {
+    const defSets = new FlowObserveStore<Set<string>>(input.def, livenessSetEqual);
+    const useSets = new FlowObserveStore<Set<string>>(input.use, livenessSetEqual);
     const inSetsRaw = new Map();
     const outSetsRaw = new Map();
-    for (const node of cfg.nodes) {
+    for (const node of input.cfg.nodeIds) {
         inSetsRaw.set(node, new Set());
         outSetsRaw.set(node, new Set());
     }
-    outSetsRaw.set(cfg.exitId, liveOut);
+    outSetsRaw.set(input.cfg.exitId, liveOut);
 
     const inSets = new FlowObserveStore<Set<string>>(inSetsRaw, livenessSetEqual);
     const outSets = new FlowObserveStore<Set<string>>(outSetsRaw, livenessSetEqual);
@@ -89,22 +90,7 @@ function extractDataFromStore(store: LivenessDataStore, nodeId: number): Livenes
     return {data: copy, changed: store.hasChanged(nodeId), lookedAt: store.wasLookedAt(nodeId)};
 }
 
-function getReverseTopologicalOrder(entryId: number, cfg: LivenessCFG): Array<number> {
-    const nodeOrder = [];
-    const visited = new Set();
-    const shouldVisit = [entryId];
-    while (shouldVisit.length !== 0) {
-        const newNode = shouldVisit.shift()!;
-        if (visited.has(newNode)) continue;
-        visited.add(newNode);
 
-        const follow = cfg.edges.get(newNode);
-        if (follow !== undefined) shouldVisit.push(...follow);
-        nodeOrder.push(newNode);
-    }
-    nodeOrder.reverse();
-    return nodeOrder;
-}
 
 function livenessSetEqual(s1: Set<string>, s2: Set<string>): boolean {
     return s1.size == s2.size && [...s1].every(v => s2.has(v));
@@ -121,13 +107,10 @@ export type LivenessNodeData = {
 
 export type LivenessSetData = { data: Set<string>, lookedAt: boolean, changed: boolean };
 
-export type LivenessCFG = {
-    entryId: number,
-    exitId: number,
+export type LivenessInput = {
     def: Map<number, Set<string>>,
     use: Map<number, Set<string>>,
-    edges: Map<number, Set<number>>,
-    nodes: Array<number>,
+    cfg : ControlFlowGraph,
 };
 
 export function extractUseAndDefFromInstructions(instructions: Map<number, TacInstruction>): {
