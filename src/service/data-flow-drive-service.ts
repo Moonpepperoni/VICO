@@ -12,7 +12,13 @@ import {
     createLivenessInstructionStepper,
     createReachingDefinitionsStepper
 } from "../flow/common.ts";
-import {explainLiveness, type Explanation, type ExplanationFunction} from "../explanation/engine.ts";
+import {
+    explainConstantPropagation,
+    explainLiveness,
+    explainReachingDefinitions,
+    type Explanation,
+    type ExplanationFunction
+} from "../explanation/engine.ts";
 import type {ReachingDefinitionsState} from "../flow/reaching-definitions.ts";
 
 export type FlowAlgorithmSelector =
@@ -26,12 +32,14 @@ class AlgorithmExecutionEngine<T> {
     private readonly stepper: GeneratorStepper<T>;
     private readonly cfg: ControlFlowGraph;
     private readonly converter: ConversionFunction<T>;
+    private readonly explanationFunction: ExplanationFunction;
 
-    private constructor(stepper: GeneratorStepper<T>, cfg: ControlFlowGraph, converter: ConversionFunction<T>, algoName: FlowAlgorithmSelector["kind"]) {
+    private constructor(stepper: GeneratorStepper<T>, cfg: ControlFlowGraph, converter: ConversionFunction<T>, algoName: FlowAlgorithmSelector["kind"], explanationFunction: ExplanationFunction) {
         this.stepper = stepper;
         this.cfg = cfg;
         this.converter = converter;
         this.algoName = algoName;
+        this.explanationFunction = explanationFunction;
     }
 
     static from(selector: FlowAlgorithmSelector, tacProgram: TacProgram) {
@@ -39,22 +47,22 @@ class AlgorithmExecutionEngine<T> {
             case "liveness-single-instruction": {
                 const cfg = new SingleInstructionGraph(tacProgram);
                 const algo = createLivenessInstructionStepper(cfg, selector.liveOut);
-                return new AlgorithmExecutionEngine<LivenessState>(algo, cfg, convertLivenessToFlowOut, selector.kind);
+                return new AlgorithmExecutionEngine<LivenessState>(algo, cfg, convertLivenessToFlowOut, selector.kind, explainLiveness);
             }
             case "liveness-basic-blocks": {
                 const cfg = new BasicBlockControlFlowGraph(tacProgram);
                 const algo = createLivenessBasicBlockStepper(cfg, selector.liveOut);
-                return new AlgorithmExecutionEngine<LivenessState>(algo, cfg, convertLivenessToFlowOut, selector.kind);
+                return new AlgorithmExecutionEngine<LivenessState>(algo, cfg, convertLivenessToFlowOut, selector.kind, explainLiveness);
             }
             case "reaching-definitions-basic-blocks": {
                 const cfg = new BasicBlockControlFlowGraph(tacProgram);
                 const algo = createReachingDefinitionsStepper(cfg);
-                return new AlgorithmExecutionEngine<ReachingDefinitionsState>(algo, cfg, convertReachingToFlowOut, selector.kind);
+                return new AlgorithmExecutionEngine<ReachingDefinitionsState>(algo, cfg, convertReachingToFlowOut, selector.kind, explainReachingDefinitions);
             }
             case "constant-propagation-basic-blocks": {
                 const cfg = new BasicBlockControlFlowGraph(tacProgram);
                 const algo = createConstantPropagationStepper(cfg);
-                return new AlgorithmExecutionEngine<ConstantPropagationState>(algo, cfg, convertConstantPropagationToFlowOut, selector.kind);
+                return new AlgorithmExecutionEngine<ConstantPropagationState>(algo, cfg, convertConstantPropagationToFlowOut, selector.kind, explainConstantPropagation);
             }
             default: {
                 const exhaustiveCheck: never = selector;
@@ -82,7 +90,7 @@ class AlgorithmExecutionEngine<T> {
     currentValue(): FlowState | undefined {
         const current = this.stepper.currentValue();
         if (!current) return undefined;
-        return this.converter(this.cfg, current, explainLiveness);
+        return this.converter(this.cfg, current, this.explanationFunction);
     }
 }
 
