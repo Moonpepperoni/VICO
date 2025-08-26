@@ -121,6 +121,7 @@ function convertToObserveStores(input: ReachingDefinitionsInput,) {
 function getAllBlockGens(basicBlocks: Map<number, Map<number, TacInstruction>>) {
     const blockGens = new Map<number, Map<string, string>>();
     const instructionGenNames = new Map<number, string>();
+    const gensByVariable = new Map<string, Set<string>>();
     let genNumber = 1;
 
     for (const [id, block] of basicBlocks.entries()) {
@@ -131,29 +132,21 @@ function getAllBlockGens(basicBlocks: Map<number, Map<number, TacInstruction>>) 
                 const genName = `d${genNumber}`;
                 // this will automatically remove gens that are no longer valid
                 thisBlockGens.set(variable, genName);
+                const genSetByVariable = gensByVariable.get(variable);
+                if (genSetByVariable === undefined) {
+                    gensByVariable.set(variable, new Set([genName]));
+                } else {
+                    genSetByVariable.add(genName);
+                }
                 genNumber++;
                 instructionGenNames.set(id, genName);
             }
         }
         blockGens.set(id, thisBlockGens);
     }
-    return {blockGens, instructionGenNames};
+    return {blockGens, instructionGenNames, gensByVariable};
 }
 
-function getGensByVariable(blockGens: Map<number, Map<string, string>>) {
-    const variableGens = new Map<string, Set<string>>();
-    for (const [, thisBlockGens] of blockGens.entries()) {
-        for (const [variable, genName] of thisBlockGens.entries()) {
-            const genSetByVariable = variableGens.get(variable);
-            if (genSetByVariable === undefined) {
-                variableGens.set(variable, new Set([genName]));
-            } else {
-                genSetByVariable.add(genName);
-            }
-        }
-    }
-    return variableGens;
-}
 
 function getAllBlockKills(blockGens: Map<number, Map<string, string>>, variableGens: Map<string, Set<string>>) {
     const blockKills = new Map<number, Set<string>>();
@@ -174,7 +167,6 @@ function getAllBlockKills(blockGens: Map<number, Map<string, string>>, variableG
     return blockKills;
 }
 
-// TODO: rework this, to align with definition in dragon book
 export function extractGenAndKillFromBasicBlocks(basicBlocks: Map<number, Map<number, TacInstruction>>): {
     genSets: Map<number, Set<string>>,
     killSets: Map<number, Set<string>>,
@@ -182,10 +174,9 @@ export function extractGenAndKillFromBasicBlocks(basicBlocks: Map<number, Map<nu
 } {
 
 
-    const {blockGens, instructionGenNames} = getAllBlockGens(basicBlocks);
+    const {blockGens, instructionGenNames, gensByVariable} = getAllBlockGens(basicBlocks);
 
-    const variableGens = getGensByVariable(blockGens);
-    const blockKills = getAllBlockKills(blockGens, variableGens);
+    const blockKills = getAllBlockKills(blockGens, gensByVariable);
 
 
     return {

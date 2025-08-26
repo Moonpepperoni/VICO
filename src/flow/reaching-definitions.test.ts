@@ -3,10 +3,9 @@ import { extractGenAndKillFromBasicBlocks } from './reaching-definitions';
 import { TacProgram } from '../tac/program';
 import { BasicBlockControlFlowGraph } from '../cfg/basic-blocks';
 import {TacParser} from "../tac/parser.ts";
-import type {TacInstruction} from "../tac/parser-types.ts";
 
 describe('extractGenAndKillFromBasicBlocks', () => {
-    function createBasicBlocksFromCode(code: string): Map<number, Array<TacInstruction>> {
+    function createBasicBlocksFromCode(code: string) {
         const program = TacProgram.fromParsedInstructions(new TacParser(code).parseTac());
         const cfg = new BasicBlockControlFlowGraph(program);
 
@@ -34,8 +33,9 @@ describe('extractGenAndKillFromBasicBlocks', () => {
         expect(killSets.get(blockId)?.size).toBe(0);
     });
 
-    it('should handle multiple assignments to the same variable within a block', () => {
+    it('single basic block should contain last definition of single variable as gen and all other definitions as kill', () => {
         const basicBlocks = createBasicBlocksFromCode(`
+      x = 1
       x = 5
       x = 10
     `);
@@ -46,8 +46,9 @@ describe('extractGenAndKillFromBasicBlocks', () => {
         // The gen set should contain the last definition
         expect(genSets.get(blockId)?.size).toBe(1);
 
-        // The kill set should be empty since all kills are within the same block
-        expect(killSets.get(blockId)?.size).toBe(0);
+        const killSet = killSets.get(blockId)!;
+        // the kill set should contain the first definition within the block
+        expect([...killSet]).toEqual(['d1', 'd2']);
     });
 
     it('should handle definitions across multiple blocks', () => {
