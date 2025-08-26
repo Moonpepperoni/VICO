@@ -24,7 +24,11 @@ export function explainConstantPropagation(yieldReason: YieldReason): Explanatio
                 {
                     kind: 'text',
                     content: "Berechne anschließend die neue Out-Menge, durch Ersetzen aller alten Werte auf den Zustand der letzten Definition aus dem Block."
-                }]
+                }];
+        default: {
+            const _exhaustiveCheck: never = yieldReason;
+            throw new Error(`Unknown yield reason: ${_exhaustiveCheck}`);
+        }
     }
 }
 
@@ -76,6 +80,11 @@ export function explainReachingDefinitions(yieldReason: YieldReason): Explanatio
                 kind: 'math',
                 content: '\\(out(node) := gen(node) \\cup (in(node) - kill(node))\\)'
             }];
+        default: {
+            const _exhaustiveCheck: never = yieldReason;
+            throw new Error(`Unknown yield reason: ${_exhaustiveCheck}`);
+        }
+
     }
 }
 
