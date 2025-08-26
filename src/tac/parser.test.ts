@@ -3,8 +3,6 @@ import {TacParser} from "./parser.ts";
 import {
     BinaryAssignInstruction,
     CopyInstruction, DebugLine,
-    IfFalseInstruction,
-    IfSingleOperandInstruction,
     IfWithOperatorInstruction,
     JumpInstruction, UnaryAssignInstruction
 } from "./parser-types.ts";
@@ -83,41 +81,6 @@ test('should parse if instruction with a label', () => {
     expect(instruction.right).toEqual({kind: 'ident', val: 'a'});
 });
 
-test('should parse if instruction with one ident', () => {
-    const result = parser('if a goto LABEL1').parseTac();
-    expect(result).toHaveLength(1);
-    const instruction = result[0] as IfSingleOperandInstruction;
-    expect(instruction.kind).toBe('ifSingleOperand');
-    expect(instruction.jumpLabel).toBe('LABEL1');
-    expect(instruction.operand).toEqual({kind: "ident", val: 'a'});
-});
-
-test('should parse if instruction with one ident and a label', () => {
-    const result = parser('START: if a goto LABEL1').parseTac();
-    expect(result).toHaveLength(1);
-    const instruction = result[0] as IfSingleOperandInstruction;
-    expect(instruction.kind).toBe('ifSingleOperand');
-    expect(instruction.label).toBe('START');
-    expect(instruction.operand).toEqual({kind: "ident", val: 'a'});
-});
-
-test('should parse ifFalse instruction with one ident', () => {
-    const result = parser('ifFalse a goto LABEL1').parseTac();
-    expect(result).toHaveLength(1);
-    const instruction = result[0] as IfFalseInstruction;
-    expect(instruction.kind).toBe('ifFalse');
-    expect(instruction.jumpLabel).toBe('LABEL1');
-    expect(instruction.operand).toEqual({kind: "ident", val: 'a'});
-});
-
-test('should parse ifFalse instruction with one ident and a label', () => {
-    const result = parser('SOME_LABEL: ifFalse a goto LABEL1').parseTac();
-    expect(result).toHaveLength(1);
-    const instruction = result[0] as IfFalseInstruction;
-    expect(instruction.kind).toBe('ifFalse');
-    expect(instruction.label).toBe("SOME_LABEL");
-    expect(instruction.operand).toEqual({kind: "ident", val: 'a'});
-});
 
 test('should parse copy instruction with an integer literal', () => {
     const result = parser('a = 10').parseTac();
@@ -269,7 +232,7 @@ test('should parse simple negative number assign with a label', () => {
 test('should attach debug line info to instructions', () => {
     const multiline = `HELLO: a = b
 c = a
-if c goto HELLO`;
+if c == a goto HELLO`;
     const result = parser(multiline).parseTac();
     expect(result[0][DebugLine]).toBe(1);
     expect(result[1][DebugLine]).toBe(2);
@@ -292,12 +255,6 @@ test('should throw error when if statement is incomplete', () => {
 test('should throw error when if statement has no goto', () => {
     expect(() => {
         new TacParser('if a == b').parseTac();
-    }).toThrowError(/expected.*goto/);
-});
-
-test('should throw error when ifFalse statement is incomplete', () => {
-    expect(() => {
-        new TacParser('ifFalse a').parseTac();
     }).toThrowError(/expected.*goto/);
 });
 
@@ -327,8 +284,8 @@ test('should throw error when label is used without colon', () => {
 
 test('should throw error when binary operator is invalid', () => {
     expect(() => {
-        new TacParser('a = b ! c').parseTac();
-    }).toThrowError(/! is not a valid/);
+        new TacParser('a = b == c').parseTac();
+    }).toThrowError(/== is not a valid/);
 });
 
 test('should throw error when relation operator is invalid in if statement', () => {
@@ -337,17 +294,6 @@ test('should throw error when relation operator is invalid in if statement', () 
     }).toThrowError(/\+ is not a valid/);
 });
 
-test('should throw error when using integer where identifier is required', () => {
-    expect(() => {
-        new TacParser('ifFalse 123 goto LABEL').parseTac();
-    }).toThrowError(/expected.*identifier/);
-});
-
-test('should throw error when if statement uses integer as single operand', () => {
-    expect(() => {
-        new TacParser('if 123 goto LABEL').parseTac();
-    }).toThrowError(/expected.*identifier/);
-});
 
 test('should throw collective error for multiple syntax errors in one input', () => {
     const input = `a = b +
@@ -391,20 +337,20 @@ test('should throw error when trying to use integer as label', () => {
 
 test('should throw error when using unsupported symbol in if condition', () => {
     expect(() => {
-        new TacParser('if a ! b goto LABEL').parseTac();
-    }).toThrowError(/! is not a valid/);
+        new TacParser('if a - b goto LABEL').parseTac();
+    }).toThrowError(/- is not a valid/);
 });
 
 test('should throw error when using unsupported symbol in assignment', () => {
     expect(() => {
-        new TacParser('a = b ! c').parseTac();
-    }).toThrowError(/! is not a valid/);
+        new TacParser('a = b != c').parseTac();
+    }).toThrowError(/!= is not a valid/);
 });
 
 test('should throw error when if condition uses invalid combination', () => {
     expect(() => {
         new TacParser('if 1 goto LABEL').parseTac();
-    }).toThrowError(/expected.*identifier/);
+    }).toThrowError(/expected.*symbol/);
 });
 
 test('should throw error when missing goto after if condition', () => {
@@ -462,22 +408,6 @@ test('IfWithOperatorInstruction should return empty set when both operands are i
     const instruction = result[0] as IfWithOperatorInstruction;
     expect(instruction.getVariables()).toEqual(new Set());
     expect(instruction.getVariables().size).toBe(0);
-});
-
-test('IfSingleOperandInstruction should return set with the operand variable', () => {
-    const result = parser('if a goto LABEL1').parseTac();
-    const instruction = result[0] as IfSingleOperandInstruction;
-    expect(instruction.getVariables()).toEqual(new Set(['a']));
-    expect(instruction.getVariables().size).toBe(1);
-    expect(instruction.getVariables().has('a')).toBe(true);
-});
-
-test('IfFalseInstruction should return set with the operand variable', () => {
-    const result = parser('ifFalse a goto LABEL1').parseTac();
-    const instruction = result[0] as IfFalseInstruction;
-    expect(instruction.getVariables()).toEqual(new Set(['a']));
-    expect(instruction.getVariables().size).toBe(1);
-    expect(instruction.getVariables().has('a')).toBe(true);
 });
 
 test('CopyInstruction should return set with both variables when both are identifiers', () => {
@@ -553,7 +483,7 @@ test('UnaryAssignInstruction should return set with only target variable when op
 test('Multiple instructions should correctly report their variables', () => {
     const multiline = `HELLO: a = b
 c = a
-if c goto HELLO`;
+if c == 5 goto HELLO`;
     const result = parser(multiline).parseTac();
 
     expect(result[0].getVariables()).toEqual(new Set(['a', 'b']));

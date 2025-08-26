@@ -3,13 +3,10 @@ import {
     BinaryAssignInstruction,
     CopyInstruction,
     type Ident,
-    IfFalseInstruction,
-    IfSingleOperandInstruction,
     IfWithOperatorInstruction,
     JumpInstruction,
     type Operand, OperatorConversionError,
-    type TacInstruction,
-    tryBinaryOperatorFromSymbol,
+    type TacInstruction, tryBinaryArithmeticOperatorFromSymbol,
     tryRelationOperatorFromSymbol,
     tryUnaryOperatorFromSymbol,
     UnaryAssignInstruction,
@@ -75,9 +72,6 @@ export class TacParser {
             case 'if':
                 this.parseIf(label);
                 break;
-            case 'ifFalse':
-                this.parseIfFalse(label);
-                break;
             case 'identifier':
                 this.parseAssign(label);
                 break;
@@ -134,58 +128,41 @@ export class TacParser {
         // remove if
         this.tokens.pop();
 
-        let leftOp = undefined;
         let operator = undefined;
         let rightOp = undefined;
 
 
-        leftOp = this.extractOperand();
+        const leftOp = this.extractOperand();
         const decisionToken = this.tokens.at(-1);
         if (decisionToken === undefined || decisionToken.kind === 'eol') throw new UnexpectedEndOfInstructionError(this.currentLine, 'symbol', 'goto');
         // if it's an if instruction with a relop and two operands
-        if (decisionToken.kind === 'symbol') {
-            try {
-                operator = tryRelationOperatorFromSymbol(decisionToken.val);
-            } catch (e) {
-                if (e instanceof OperatorConversionError) {
-                    throw new InvalidOperatorError(this.currentLine, e.symbol, e.expectedType);
-                }
-                else {
-                    throw e;
-                }
+        if (decisionToken.kind !== 'symbol') throw new UnexpectedTokenError(this.currentLine, decisionToken.kind, 'symbol');
+        try {
+            operator = tryRelationOperatorFromSymbol(decisionToken.val);
+        } catch (e) {
+            if (e instanceof OperatorConversionError) {
+                throw new InvalidOperatorError(this.currentLine, e.symbol, e.expectedType);
             }
-
-            // remove the read token;
-            this.tokens.pop();
-            // continue with rightOp, which must exist now;
-            rightOp = this.extractOperand();
-        }
-        const {jumpLabelToken, jumpLabel} = this.parseIfRest();
-
-        if (operator !== undefined && rightOp !== undefined) {
-            this.instructions.push(new IfWithOperatorInstruction(label, jumpLabel, jumpLabelToken.line, leftOp, rightOp, operator));
-            return;
+            else {
+                throw e;
+            }
         }
 
-        if (leftOp.kind !== 'ident') {
-            throw new UnexpectedTokenError(this.currentLine, leftOp.kind, 'identifier');
-        }
-        this.instructions.push(new IfSingleOperandInstruction(label, jumpLabel, jumpLabelToken.line, leftOp));
-    }
-
-    private parseIfFalse(label: undefined | string) {
-        // remove ifFalse Token
+        // remove the read token;
         this.tokens.pop();
-        const operandToken = this.tokens.pop()
-        if (operandToken === undefined || operandToken.kind === 'eol') throw new UnexpectedEndOfInstructionError(this.currentLine, 'identifier');
-
-        if (operandToken.kind !== 'identifier') throw new UnexpectedTokenError(this.currentLine, operandToken.kind, 'identifier');
-        const identifier = {kind: 'ident', val: operandToken.val} as Ident;
-
+        // continue with rightOp, which must exist now;
+        rightOp = this.extractOperand();
         const {jumpLabelToken, jumpLabel} = this.parseIfRest();
 
-        this.instructions.push(new IfFalseInstruction(label, jumpLabel, jumpLabelToken.line, identifier));
+        if (operator === undefined) {
+            throw new UnexpectedEndOfInstructionError(this.currentLine, decisionToken.kind, 'symbol');
+        }
+        if (rightOp === undefined) {
+            throw new UnexpectedEndOfInstructionError(this.currentLine, decisionToken.kind, 'identifier', 'integer_literal');
+        }
+        this.instructions.push(new IfWithOperatorInstruction(label, jumpLabel, jumpLabelToken.line, leftOp, rightOp, operator));
     }
+
 
     private parseAssign(label: undefined | string) {
         const identifierToken = this.tokens.pop();
@@ -237,7 +214,7 @@ export class TacParser {
         }
         if (decisionToken.kind === 'symbol') {
             try {
-                operator = tryBinaryOperatorFromSymbol(decisionToken.val);
+                operator = tryBinaryArithmeticOperatorFromSymbol(decisionToken.val);
             } catch (e) {
                 if (e instanceof OperatorConversionError) {
                     throw new InvalidOperatorError(this.currentLine, e.symbol, e.expectedType);

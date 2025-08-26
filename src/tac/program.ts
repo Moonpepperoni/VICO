@@ -50,9 +50,7 @@ function verifyLabelUsage(instructions: Map<number, TacInstruction>, labelTable:
     for (const instruction of instructions.values()) {
         switch (instruction.kind) {
             case "jump":
-            case "ifFalse":
-            case "ifWithOperator":
-            case "ifSingleOperand": {
+            case "ifWithOperator": {
                 const target = instruction.jumpLabel;
                 if (labelTable.getInstructionIdFromLabel(target) === undefined) errors.push(new LabelNotDefinedError(target, instruction[DebugLine]));
                 break;
@@ -111,10 +109,8 @@ export class TacProgram {
     getExplicitJumpTargetIds(instructionId : number) : Set<number> {
         const instruction = this.instructionLookupTable.get(instructionId)!;
         switch (instruction.kind) {
-            case "ifFalse":
             case "jump":
             case "ifWithOperator":
-            case "ifSingleOperand":
                 return new Set([this.labelTable.getInstructionIdFromLabel(instruction.jumpLabel)!]);
         }
         return new Set();
@@ -160,9 +156,7 @@ export class TacProgram {
         if (instruction.kind !== 'jump' && instructionIndex < this.numberOfInstructions - 1) after.add(instructionIndex+1);
         switch (instruction.kind) {
             case "jump":
-            case "ifSingleOperand":
             case "ifWithOperator":
-            case "ifFalse":
                 after.add(this.labelTable.getInstructionIdFromLabel(instruction.jumpLabel)!);
                 break;
         }

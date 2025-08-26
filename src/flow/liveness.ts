@@ -152,12 +152,6 @@ function getUseAndDefFromInstruction(instruction: TacInstruction): { useSet: Set
                 useSet.add(instruction.operand.val);
             }
             break;
-        case 'ifFalse':
-            useSet.add(instruction.operand.val);
-            break;
-        case 'ifSingleOperand':
-            useSet.add(instruction.operand.val);
-            break;
         case 'ifWithOperator':
             if (instruction.left.kind === 'ident') {
                 useSet.add(instruction.left.val);
@@ -206,12 +200,6 @@ function getUseAndDefFromBlocksInstructions(instructions: Array<TacInstruction>)
                     safeAddToUse(instruction.operand.val);
                 }
                 safeAddToDef(instruction.target.val);
-                break;
-            case 'ifFalse':
-                safeAddToUse(instruction.operand.val);
-                break;
-            case 'ifSingleOperand':
-                safeAddToUse(instruction.operand.val);
                 break;
             case 'ifWithOperator':
                 if (instruction.left.kind === 'ident') {

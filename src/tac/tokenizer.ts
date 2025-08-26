@@ -48,17 +48,14 @@ const LABEL_REGEX = /^([A-Z](_|[A-Z0-9])*[A-Z0-9])$/;
 const IDENT_REGEX = /^([a-z][a-z0-9]*)$/;
 const INT_REGEX = /^(0|([1-9][0-9]*))$/;
 const IF_REGEX = /^if$/;
-const IF_FALSE_REGEX = /^ifFalse$/;
 const GOTO_REGEX = /^goto$/;
-const SYMBOL_REGEX = /^(\+|-|\*|\/|%|(==)|(<=)|(>=)|(!=)|<|>|=|:|!)$/;
+const SYMBOL_REGEX = /^(\+|-|\*|\/|%|(==)|(<=)|(>=)|(!=)|<|>|=|:)$/;
 
 function readSingleToken(rawToken: string, line: number): Token {
     if (LABEL_REGEX.test(rawToken)) {
         return { kind: 'label', val: rawToken, line };
     } else if (IF_REGEX.test(rawToken)) {
         return { kind: 'if', line };
-    } else if (IF_FALSE_REGEX.test(rawToken)) {
-        return { kind: 'ifFalse', line };
     } else if (GOTO_REGEX.test(rawToken)) {
         return { kind: 'goto', line };
     } else if (SYMBOL_REGEX.test(rawToken)) {
@@ -82,5 +79,4 @@ export type Token = TokenVal &
         { kind: 'label', val: string } |
         { kind: 'goto' } |
         { kind: 'eol' } |
-        { kind: 'ifFalse' } |
         { kind: 'if' });

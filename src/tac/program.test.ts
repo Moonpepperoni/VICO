@@ -54,23 +54,13 @@ test('should fail on if goto to non defined instruction', () => {
     expect(() => TacProgram.fromParsedInstructions(tac)).toThrowError(/HELLO is never defined/);
 });
 
-test('should fail on ifFalse goto to non defined instruction', () => {
-    const program = `ifFalse a goto HELLO`;
-    const tac = parseTac(program);
-    expect(() => TacProgram.fromParsedInstructions(tac)).toThrowError(/HELLO is never defined/);
-});
 
-test('should fail on ifSingleOp goto to non defined instruction', () => {
-    const program = `if a goto HELLO`;
-    const tac = parseTac(program);
-    expect(() => TacProgram.fromParsedInstructions(tac)).toThrowError(/HELLO is never defined/);
-});
 
 test('should fail if multiple instructions define the same label', () => {
     const program = `
     HELLO: a = b
     HELLO: b = a 
-    if a goto HELLO`;
+    if a == b goto HELLO`;
     const tac = parseTac(program);
     expect(() => TacProgram.fromParsedInstructions(tac)).toThrowError(/HELLO is already defined/);
 });
@@ -79,7 +69,7 @@ test('should fail and report all errors', () => {
     const program = `
     HELLO: a = b
     HELLO: b = a
-    HELLO: if a goto SOMETHING_ELSE
+    HELLO: if a == c goto SOMETHING_ELSE
     goto HELLO1`;
     const tac = parseTac(program);
     const result = expect(() => TacProgram.fromParsedInstructions(tac));
@@ -90,7 +80,7 @@ test('should return true if instruction is before another instruction', () => {
     const code = `
     FIRST: a = b
     SECOND: b = a
-    if a goto FIRST`;
+    if a == b goto FIRST`;
     const tac = parseTac(code);
     const program = TacProgram.fromParsedInstructions(tac);
 
@@ -104,7 +94,7 @@ test('should return false if instruction is not before another instruction', () 
     const code = `
     FIRST: a = b
     SECOND: b = a
-    if a goto FIRST`;
+    if a == b goto FIRST`;
     const tac = parseTac(code);
     const program = TacProgram.fromParsedInstructions(tac);
 
@@ -118,7 +108,7 @@ test('should return false if instruction is compared to itself', () => {
     const code = `
     FIRST: a = b
     SECOND: b = a
-    if a goto FIRST`;
+    if a  == b goto FIRST`;
     const tac = parseTac(code);
     const program = TacProgram.fromParsedInstructions(tac);
 
@@ -207,32 +197,6 @@ test('should get explicit jump target IDs for if instruction', () => {
     const program = `
         a = 1
         if a == 1 goto TARGET
-        b = 2
-        TARGET: c = 3`;
-    const tac = parseTac(program);
-    const tacProgram = TacProgram.fromParsedInstructions(tac);
-
-    const jumpTargets = tacProgram.getExplicitJumpTargetIds(1); // if instruction
-    expect(jumpTargets).toEqual(new Set([3])); // TARGET instruction ID
-});
-
-test('should get explicit jump target IDs for ifFalse instruction', () => {
-    const program = `
-        a = 1
-        ifFalse a goto TARGET
-        b = 2
-        TARGET: c = 3`;
-    const tac = parseTac(program);
-    const tacProgram = TacProgram.fromParsedInstructions(tac);
-
-    const jumpTargets = tacProgram.getExplicitJumpTargetIds(1); // ifFalse instruction
-    expect(jumpTargets).toEqual(new Set([3])); // TARGET instruction ID
-});
-
-test('should get explicit jump target IDs for if single operand instruction', () => {
-    const program = `
-        a = 1
-        if a goto TARGET
         b = 2
         TARGET: c = 3`;
     const tac = parseTac(program);

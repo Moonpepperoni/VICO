@@ -3,8 +3,6 @@ export const DebugLine = Symbol.for('line');
 export type TacInstruction =
     JumpInstruction
     | IfWithOperatorInstruction
-    | IfSingleOperandInstruction
-    | IfFalseInstruction
     | CopyInstruction
     | BinaryAssignInstruction
     | UnaryAssignInstruction;
@@ -25,16 +23,6 @@ export type RelationOperator = "==" | "<=" | ">=" | "<" | ">" | "!=";
 
 export type BinaryArithmaticOperator = "+" | "-" | "*" | "/" | "%";
 
-export type BinaryOperator = RelationOperator | BinaryArithmaticOperator;
-
-export type InstructionType =
-    'jump'
-    | 'ifWithOperator'
-    | 'ifSingleOperand'
-    | 'ifFalse'
-    | 'copy'
-    | 'assignBinary'
-    | 'assignUnary';
 
 abstract class BaseInstruction {
     readonly label?: string;
@@ -95,51 +83,6 @@ export class IfWithOperatorInstruction extends BaseInstruction {
     }
 }
 
-export class IfSingleOperandInstruction extends BaseInstruction {
-    readonly kind = 'ifSingleOperand';
-    readonly jumpLabel: string;
-    readonly operand: Ident;
-
-
-    constructor(label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
-        super(label, line);
-        this.jumpLabel = jmpLabel;
-        this.operand = operand;
-    }
-
-    getVariables(): Set<string> {
-        const variables = new Set<string>();
-        if (this.operand.kind === 'ident') variables.add(this.operand.val);
-        return variables;
-    }
-
-    toString(): string {
-        return (this.label ? `${this.label}: ` : '') + `if ${this.operand.val} goto ${this.jumpLabel}`;
-    }
-}
-
-export class IfFalseInstruction extends BaseInstruction {
-    readonly kind = 'ifFalse';
-    readonly jumpLabel: string;
-    readonly operand: Ident;
-
-
-    constructor(label: undefined | string, jmpLabel: string, line: number, operand: Ident) {
-        super(label, line);
-        this.jumpLabel = jmpLabel;
-        this.operand = operand;
-    }
-
-    getVariables(): Set<string> {
-        const variables = new Set<string>();
-        if (this.operand.kind === 'ident') variables.add(this.operand.val);
-        return variables;
-    }
-
-    toString(): string {
-        return (this.label ? `${this.label}: ` : '') + `ifFalse ${this.operand.val} goto ${this.jumpLabel}`;
-    }
-}
 
 export class CopyInstruction extends BaseInstruction {
     readonly kind = 'copy';
@@ -170,9 +113,9 @@ export class BinaryAssignInstruction extends BaseInstruction {
     readonly target: Ident;
     readonly left: Operand;
     readonly right: Operand;
-    readonly operator: BinaryOperator;
+    readonly operator: BinaryArithmaticOperator;
 
-    constructor(label: undefined | string, line: number, target: Ident, left: Operand, right: Operand, operator: BinaryOperator) {
+    constructor(label: undefined | string, line: number, target: Ident, left: Operand, right: Operand, operator: BinaryArithmaticOperator) {
         super(label, line);
         this.left = left;
         this.target = target;
@@ -235,13 +178,6 @@ export function tryRelationOperatorFromSymbol(symbol: string): RelationOperator 
     throw new OperatorConversionError(symbol, "relation");
 }
 
-export function tryBinaryOperatorFromSymbol(symbol: string): BinaryOperator {
-    const valid = ["==", "<=", ">=", "<", ">", "!=", "+", "-", "*", "/", "%"];
-    if (valid.includes(symbol)) {
-        return symbol as BinaryOperator;
-    }
-    throw new OperatorConversionError(symbol, "binary");
-}
 
 export function tryUnaryOperatorFromSymbol(symbol: string): UnaryOperator {
     const valid = ["!", "-"];

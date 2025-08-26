@@ -9,10 +9,6 @@ test('should detect goto token', () => {
     expect(tokenizeString('goto')).toContainEqual({ kind: 'goto', line: 1 });
 })
 
-test('should detect ifFalse token', () => {
-    expect(tokenizeString('ifFalse')).toContainEqual({ kind: 'ifFalse', line: 1 });
-})
-
 test('should detect valid identifier without numbers', () => {
     expect(tokenizeString('abc')).toContainEqual({ kind: 'identifier', val: 'abc', line: 1 });
 })
@@ -70,10 +66,6 @@ test('should detect invalid number starting with 0', () => {
 
 test('should detect = operator', () => {
     expect(tokenizeString('=')).toContainEqual({ kind: 'symbol', val: '=', line: 1 });
-})
-
-test('should detect ! operator', () => {
-    expect(tokenizeString('!')).toContainEqual({ kind: 'symbol', val: '!', line: 1 });
 })
 
 test('should detect + operator', () => {
@@ -290,8 +282,7 @@ test('should handle complex inputs with errors in different lines', () => {
     const input = `a = b
   LABEL1: if c goto NEXT
   123invalid = d
-  e = f + @invalid
-  ifFalse g goto END`;
+  e = f + @invalid`;
 
     expect(() => tokenizeString(input)).toThrowError(/found 2 problem/);
     expect(() => tokenizeString(input)).toThrowError(/line 3.*123invalid/);

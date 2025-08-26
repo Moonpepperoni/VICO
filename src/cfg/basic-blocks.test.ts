@@ -170,7 +170,7 @@ test('should return all instructions in a basic block', () => {
     const cfg = new BasicBlockControlFlowGraph(tacProgram);
 
     // First basic block should contain all instructions before the jump target
-    const firstBlockInstructions = cfg.getNodeInstructions(0);
+    const firstBlockInstructions = [...cfg.getNodeInstructions(0).values()];
     expect(firstBlockInstructions).toHaveLength(4); // a=1, b=2, c=3, goto TARGET
     expect(firstBlockInstructions[0].kind).toBe('copy'); // a = 1
     expect(firstBlockInstructions[1].kind).toBe('copy'); // b = 2
@@ -178,12 +178,12 @@ test('should return all instructions in a basic block', () => {
     expect(firstBlockInstructions[3].kind).toBe('jump'); // goto TARGET
 
     // Second basic block (unreachable)
-    const secondBlockInstructions = cfg.getNodeInstructions(4);
+    const secondBlockInstructions = [...cfg.getNodeInstructions(4).values()];
     expect(secondBlockInstructions).toHaveLength(1);
     expect(secondBlockInstructions[0].kind).toBe('copy'); // d = 4
 
     // Third basic block (TARGET)
-    const thirdBlockInstructions = cfg.getNodeInstructions(5);
+    const thirdBlockInstructions = [...cfg.getNodeInstructions(5).values()];
     expect(thirdBlockInstructions).toHaveLength(1);
     expect(thirdBlockInstructions[0].kind).toBe('copy'); // e = 5
 });
@@ -272,7 +272,7 @@ test('should handle single instruction program', () => {
     expect(blockSuccessors).toContain(cfg.exitId);
 
     // Basic block should contain one instruction
-    const blockInstructions = cfg.getNodeInstructions(0);
+    const blockInstructions = [...cfg.getNodeInstructions(0).values()];
     expect(blockInstructions).toHaveLength(1);
     expect(blockInstructions[0].kind).toBe('copy');
 });
@@ -361,45 +361,15 @@ test('should handle empty basic blocks correctly', () => {
     const cfg = new BasicBlockControlFlowGraph(tacProgram);
 
     // Each goto should be its own basic block
-    const firstBlockInstructions = cfg.getNodeInstructions(0);
+    const firstBlockInstructions = [...cfg.getNodeInstructions(0).values()];
     expect(firstBlockInstructions).toHaveLength(1);
     expect(firstBlockInstructions[0].kind).toBe('jump');
 
-    const targetBlockInstructions = cfg.getNodeInstructions(1);
+    const targetBlockInstructions = [...cfg.getNodeInstructions(1).values()];
     expect(targetBlockInstructions).toHaveLength(1);
     expect(targetBlockInstructions[0].kind).toBe('jump');
 
-    const endBlockInstructions = cfg.getNodeInstructions(2);
+    const endBlockInstructions = [...cfg.getNodeInstructions(2).values()];
     expect(endBlockInstructions).toHaveLength(1);
     expect(endBlockInstructions[0].kind).toBe('copy');
-});
-
-test('should handle ifFalse and ifSingleOperand instructions', () => {
-    const program = `
-        a = 1
-        ifFalse a goto TARGET1
-        if b goto TARGET2
-        b = 2
-        TARGET1: c = 3
-        TARGET2: d = 4`;
-    const tac = parseTac(program);
-    const tacProgram = TacProgram.fromParsedInstructions(tac, idGenerator());
-    const cfg = new BasicBlockControlFlowGraph(tacProgram);
-
-    // First block should connect to multiple targets
-    const firstBlockSuccessors = cfg.getNodeSuccessors(0);
-    expect(firstBlockSuccessors).toContain(2); // if b goto TARGET2
-    expect(firstBlockSuccessors).toContain(4); // TARGET1
-
-    // Check that all target blocks have correct predecessors
-    const bBlockPredecessors = cfg.getNodePredecessors(3);
-    expect(bBlockPredecessors).toContain(2);
-
-    const target1Predecessors = cfg.getNodePredecessors(4);
-    expect(target1Predecessors).toContain(0);
-    expect(target1Predecessors).toContain(3);
-
-    const target2Predecessors = cfg.getNodePredecessors(5);
-    expect(target2Predecessors).toContain(2);
-    expect(target2Predecessors).toContain(4);
 });

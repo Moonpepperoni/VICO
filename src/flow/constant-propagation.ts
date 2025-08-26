@@ -1,4 +1,8 @@
-import {type BinaryOperator, type TacInstruction, type UnaryOperator} from "../tac/parser-types.ts";
+import {
+    type BinaryArithmaticOperator,
+    type TacInstruction,
+    type UnaryOperator
+} from "../tac/parser-types.ts";
 import {FlowObserveStore} from "./observe.ts";
 import {produce} from "immer";
 import type {YieldReason} from "./common.ts";
@@ -58,9 +62,10 @@ function unaryOperatorFrom(operator: UnaryOperator): PropagationUnaryOperator {
     return operator as PropagationUnaryOperator;
 }
 
-function binaryOperatorFrom(operator: BinaryOperator): PropagationBinaryOperator {
+function binaryArithmeticOperatorFrom(operator: BinaryArithmaticOperator): PropagationBinaryOperator {
     return operator as PropagationBinaryOperator;
 }
+
 
 function extractDefinitionFromInstruction(instruction: TacInstruction): Definition | undefined {
     switch (instruction.kind) {
@@ -112,7 +117,7 @@ function extractDefinitionFromInstruction(instruction: TacInstruction): Definiti
                 kind: 'constant',
                 value: +operand2.val
             };
-            return {kind: "binary", target, use1, use2, op: binaryOperatorFrom(operator)};
+            return {kind: "binary", target, use1, use2, op: binaryArithmeticOperatorFrom(operator)};
         }
         default:
             return undefined;

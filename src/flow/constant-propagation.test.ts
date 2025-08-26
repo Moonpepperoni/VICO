@@ -6,15 +6,15 @@ import { TacParser } from "../tac/parser.ts";
 import type { TacInstruction } from "../tac/parser-types.ts";
 
 describe('extractDefinitions', () => {
-    function createBasicBlocksMapFromCode(code: string): Map<number, Array<TacInstruction>> {
+    function createBasicBlocksMapFromCode(code: string) {
         const program = TacProgram.fromParsedInstructions(new TacParser(code).parseTac());
         const cfg = new BasicBlockControlFlowGraph(program);
 
         // Convert the CFG to the required Map<number, Array<TacInstruction>> format
-        const basicBlocks = new Map<number, Array<TacInstruction>>();
+        const basicBlocks = new Map<number, TacInstruction[]>();
         for (const nodeId of cfg.dataNodeIds) {
             const instructions = cfg.getNodeInstructions(nodeId);
-            basicBlocks.set(nodeId, instructions);
+            basicBlocks.set(nodeId, [...instructions.values()]);
         }
 
         return basicBlocks;
@@ -137,7 +137,7 @@ describe('extractDefinitions', () => {
     it('should correctly extract definitions from multiple blocks', () => {
         const basicBlocks = createBasicBlocksMapFromCode(`
             x = 10
-            if x goto L1
+            if x == 1 goto L1
             y = 20
             goto L2
             L1: y = 30
@@ -203,7 +203,7 @@ describe('extractDefinitions', () => {
     it('should not extract definitions from non-assignment instructions', () => {
         const basicBlocks = createBasicBlocksMapFromCode(`
             x = 5
-            L2: if x goto L1
+            L2: if x == 10 goto L1
             L1: goto L2
         `);
         const { definitions } = extractDefinitions(basicBlocks);
