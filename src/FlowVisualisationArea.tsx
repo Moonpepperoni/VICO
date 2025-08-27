@@ -136,13 +136,14 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({
             </div>
 
             {/* Control Panel */}
-            <div className="p-3">
+            <div data-cy="algo-control-menu" className="p-3">
                 <h6 className="text-muted mb-3">Steuerung</h6>
                 {/* Playback Controls */}
                 <div className="mb-3">
                     <div className="d-grid gap-2">
                         <ButtonGroup>
                             <Button
+                                data-cy="algo-control-step-backward-button"
                                 variant="outline-primary"
                                 onClick={stepBackward}
                                 disabled={!canStepBackward}
@@ -150,6 +151,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({
                                 ⏮ Vorheriger
                             </Button>
                             <Button
+                                data-cy="algo-control-step-forward-button"
                                 variant="outline-primary"
                                 onClick={stepForward}
                                 disabled={!canStepForward}
@@ -158,13 +160,14 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({
                             </Button>
                         </ButtonGroup>
                         <Button
+                            data-cy="algo-control-step-to-end-button"
                             variant="secondary"
                             onClick={stepToEnd}
                             disabled={!canStepForward}
                         >
                             Zum Ende
                         </Button>
-                        <Button variant="danger" onClick={onEndRequest}>
+                        <Button data-cy="algo-control-stop-button" variant="danger" onClick={onEndRequest}>
                             Beenden
                         </Button>
                     </div>

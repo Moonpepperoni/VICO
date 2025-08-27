@@ -100,6 +100,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
     })();
 
     return <Modal
+        data-cy="pre-algo-modal"
         show={selectedAlgorithm !== null}
         onHide={handleClose}
         backdrop="static"
@@ -154,7 +155,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
             <Button variant="secondary" onClick={handleClose}>
                 Zurück
             </Button>
-            <Button variant="success" onClick={onStart}>Starten</Button>
+            <Button data-cy="pre-algo-modal-start-button" variant="success" onClick={onStart}>Starten</Button>
         </Modal.Footer>
     </Modal>
 };

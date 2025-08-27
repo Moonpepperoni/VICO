@@ -40,7 +40,7 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
             </div>
 
             {/* Control Panel */}
-            <div className="p-3">
+            <div data-cy="algo-control" className="p-3">
                 <h6 className="text-muted mb-3">Steuerung</h6>
 
                 {/* Playback Controls */}
@@ -77,6 +77,7 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
                             Zum Ende
                         </Button>
                         <Button
+                            data-cy='algo-control-stop-button'
                             variant="danger"
                             onClick={handleStop}
                             disabled={true}

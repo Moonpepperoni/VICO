@@ -16,6 +16,7 @@ interface DataFlowServiceState {
     canStepForward: boolean;
     canStepBackward: boolean;
     programErrors: Array<{ line: number; reason: string }>;
+    canSelectAlgorithm: boolean;
 }
 
 /**
@@ -51,6 +52,7 @@ export function useDataFlowService({initialProgramText} : DataFlowServiceProps):
         canStepBackward: service.canStepBackward(),
         programErrors: [],
         currentAlgorithm: service.currentAlgorithm,
+        canSelectAlgorithm: service.canSelectAlgorithm()
     });
 
     // Hilfsfunktion, um den aktuellen Zustand zu aktualisieren
@@ -61,6 +63,7 @@ export function useDataFlowService({initialProgramText} : DataFlowServiceProps):
             canStepForward: service.canStepForward(),
             canStepBackward: service.canStepBackward(),
             currentAlgorithm: service.currentAlgorithm,
+            canSelectAlgorithm: service.canSelectAlgorithm(),
             programErrors: state.programErrors, // Fehler bleiben erhalten, bis ein neues Programm gesetzt wird
         });
     }, [service, state.programErrors]);
@@ -75,6 +78,8 @@ export function useDataFlowService({initialProgramText} : DataFlowServiceProps):
             currentValue: service.currentStepValue(),
             canStepForward: service.canStepForward(),
             canStepBackward: service.canStepBackward(),
+            currentAlgorithm: service.currentAlgorithm,
+            canSelectAlgorithm: service.canSelectAlgorithm()
         }));
     }, [service]);
 

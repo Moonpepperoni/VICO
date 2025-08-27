@@ -1,5 +1,8 @@
 import {DataFlowDriveService, type FlowAlgorithmSelector} from './data-flow-drive-service';
 import {beforeEach, describe, expect, it} from 'vitest';
+import {enableMapSet} from "immer";
+
+enableMapSet();
 
 // Sample TAC program for testing
 const validTacProgram = `a = 5
@@ -305,5 +308,40 @@ describe('DataFlowDriveService', () => {
             // should completely reset the algorithm
             expect(service.currentAlgorithm).toBeUndefined();
         });
+
+        it('should return false when program text is empty', () => {
+            service.trySetNewProgram('');
+            expect(service.programText).toBe('');
+            expect(service.canSelectAlgorithm()).toBe(false);
+        });
+
+        it('should return false when program is invalid', () => {
+            service.trySetNewProgram(invalidTacProgram);
+            expect(service.errors).toBeDefined();
+            expect(service.canSelectAlgorithm()).toBe(false);
+        });
+
+        it('should return true when program is valid', () => {
+            service.trySetNewProgram(validTacProgram);
+            expect(service.errors).toBeUndefined();
+            expect(service.canSelectAlgorithm()).toBe(true);
+        });
+
+        it('should return false after setting an invalid program when previously valid', () => {
+            service.trySetNewProgram(validTacProgram);
+            expect(service.canSelectAlgorithm()).toBe(true);
+
+            service.trySetNewProgram(invalidTacProgram);
+            expect(service.canSelectAlgorithm()).toBe(false);
+        });
+
+        it('should return true after setting a valid program when previously invalid', () => {
+            service.trySetNewProgram(invalidTacProgram);
+            expect(service.canSelectAlgorithm()).toBe(false);
+
+            service.trySetNewProgram(validTacProgram);
+            expect(service.canSelectAlgorithm()).toBe(true);
+        });
+
     });
 });

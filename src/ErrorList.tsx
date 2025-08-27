@@ -8,6 +8,7 @@ interface ErrorListProps {
 export const ErrorList: React.FC<ErrorListProps> = ({errors}) => {
     return (
         <Card
+            data-cy='error-list'
             className="h-100"
             style={{
                 display: 'flex',
@@ -28,9 +29,10 @@ export const ErrorList: React.FC<ErrorListProps> = ({errors}) => {
                 flexDirection: 'column'
             }}>
                 {errors.length > 0 ? (
-                    <ListGroup variant="flush" className="h-100">
+                    <ListGroup data-cy="error-list-items" variant="flush" className="h-100">
                         {errors.map((error, index) => (
                             <ListGroup.Item
+                                data-cy="error-list-item"
                                 key={index}
                                 variant="danger"
                                 className="d-flex justify-content-between align-items-center"
@@ -41,7 +43,7 @@ export const ErrorList: React.FC<ErrorListProps> = ({errors}) => {
                         ))}
                     </ListGroup>
                 ) : (
-                    <Card.Body className="text-center text-muted">
+                    <Card.Body data-cy="error-list-no-errors" className="text-center text-muted">
                         Keine Fehler gefunden
                     </Card.Body>
                 )}

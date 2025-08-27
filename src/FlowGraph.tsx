@@ -30,7 +30,7 @@ const edgeTypes = {
 
 export const FlowGraph:React.FC<FlowGraphProps> = ({nodes, edges, onNodesChange}) => {
     return <>
-        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange} nodesDraggable={false} fitView minZoom={0.4} maxZoom={3}>
+        <ReactFlow data-cy="algo-graph-display" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange} nodesDraggable={false} fitView minZoom={0.4} maxZoom={3}>
             <Background />
             <Controls showInteractive={false} />
             <MiniMap pannable={true}></MiniMap>

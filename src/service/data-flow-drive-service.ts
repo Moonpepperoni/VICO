@@ -170,6 +170,12 @@ export class DataFlowDriveService {
         }
     }
 
+    canSelectAlgorithm(): boolean {
+        if (this.currentProgram === undefined) return false;
+        if (this.currentProgram.programText === '') return false;
+        return this.currentProgram.validity === 'valid';
+    }
+
     currentStepValue(): FlowState | undefined {
         return this.engine?.currentValue();
     }

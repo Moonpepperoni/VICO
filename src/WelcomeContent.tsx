@@ -42,10 +42,11 @@ export const WelcomeContent: React.FC<WelcomeContentProps> = ({onGoClick}) => {
                     size="lg"
                     onClick={scrollToFileUpload}
                     className="me-3"
+                    data-cy="start-scroll-upload-button"
                 >
                     Eigene Datei hochladen
                 </Button>
-                <Button variant="dark" size="lg" onClick={() => onGoClick(EXAMPLE_CODE, "example.tac")}>
+                <Button data-cy="start-example-button" variant="dark" size="lg" onClick={() => onGoClick(EXAMPLE_CODE, "example.tac")}>
                     Einfach loslegen
                 </Button>
             </div>

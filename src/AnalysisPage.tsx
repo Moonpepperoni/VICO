@@ -14,7 +14,7 @@ export const AnalysisPage: React.FC<{
     const [algoSelectionMenuVisible, setAlgoSelectionMenuVisible] = useState(true);
     const [preSelectedAlgorithm, setPreSelectedAlgorithm] = useState<FlowAlgorithmSelector["kind"] | null>(null);
     const {state, stepForward, stepBackward, stepToEnd, setProgramText, deselectAlgorithm, setAlgorithm} = useDataFlowService({initialProgramText: fileContent});
-    const {programErrors, currentAlgorithm, currentValue, canStepForward, canStepBackward, programText} = state;
+    const {programErrors, currentAlgorithm, currentValue, canStepForward, canStepBackward, programText, canSelectAlgorithm} = state;
 
     const toggleMenu = () => {
         setAlgoSelectionMenuVisible(!algoSelectionMenuVisible);
@@ -29,9 +29,11 @@ export const AnalysisPage: React.FC<{
         setAlgoSelectionMenuVisible(false);
     }
 
+
     const handleAlgorithmStart = (selector : FlowAlgorithmSelector, requested: boolean) => {
         setPreSelectedAlgorithm(null);
         setAlgorithm(selector);
+        console.log(requested);
     }
 
     // Function to handle file content saving and parsing
@@ -42,6 +44,7 @@ export const AnalysisPage: React.FC<{
     return (<div className="d-flex h-100">
         {/* Collapsible Algorithm Menu */}
         <AlgorithmMenu
+            canSelectAlgorithm={canSelectAlgorithm}
             isVisible={algoSelectionMenuVisible}
             onToggle={toggleMenu}
             onBackToWelcome={onBackToWelcome}
