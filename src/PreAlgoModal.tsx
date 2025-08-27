@@ -127,7 +127,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
                 <Form>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
                         <Form.Label>Live-Out Variablen auswählen:</Form.Label>
-                        <Form.Check key="all" type="checkbox" label="Alle Variablen"
+                        <Form.Check data-cy="pre-algo-modal-check-all-live-out" key="all" type="checkbox" label="Alle Variablen"
                                     checked={selectedVariables.size === possibleVariables.size}
                                     onChange={handleAllClicked}/>
                         {[...possibleVariables].map((variable) => {

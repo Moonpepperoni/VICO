@@ -121,14 +121,14 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({
                     <Card.Header className="bg-primary text-white">
                         <h6 className="mb-0">Aktueller Schritt</h6>
                     </Card.Header>
-                    <Card.Body>
+                    <Card.Body data-cy="algo-step-explanation-body">
                         {serviceValue?.explanation === undefined ?
                             <p className="mb-0">Hier wird eine Erklärung angezeigt</p> :
                             serviceValue?.explanation.map(e => {
                                 if (e.kind === 'text') {
-                                    return <p className="mb-0">{e.content}</p>
+                                    return <p data-cy="algo-step-explanation-line" className="mb-0">{e.content}</p>
                                 } else {
-                                    return <MathRenderer formula={e.content}/>
+                                    return <MathRenderer data-cy="algo-step-explanation-line" formula={e.content}/>
                                 }
                             })}
                     </Card.Body>
@@ -143,7 +143,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({
                     <div className="d-grid gap-2">
                         <ButtonGroup>
                             <Button
-                                data-cy="algo-control-step-backward-button"
+                                data-cy="algo-control-step-back-button"
                                 variant="outline-primary"
                                 onClick={stepBackward}
                                 disabled={!canStepBackward}
