@@ -14,7 +14,7 @@ export const AnalysisPage: React.FC<{
     const [algoSelectionMenuVisible, setAlgoSelectionMenuVisible] = useState(true);
     const [preSelectedAlgorithm, setPreSelectedAlgorithm] = useState<FlowAlgorithmSelector["kind"] | null>(null);
     const {state, stepForward, stepBackward, stepToEnd, setProgramText, deselectAlgorithm, setAlgorithm} = useDataFlowService({initialProgramText: fileContent});
-    const {programErrors, currentAlgorithm, currentValue, canStepForward, canStepBackward, programText, canSelectAlgorithm} = state;
+    const {programErrors, currentAlgorithm, currentValue, canStepForward, canStepBackward, programText, canSelectAlgorithm, possibleVariables} = state;
 
     const toggleMenu = () => {
         setAlgoSelectionMenuVisible(!algoSelectionMenuVisible);
@@ -52,7 +52,7 @@ export const AnalysisPage: React.FC<{
             onAlgorithmSelect={handleAlgorithmSelect}
         />
 
-        <PreAlgoModal selectedAlgorithm={preSelectedAlgorithm} handleClose={handleCloseAlgoStart} handleStart={handleAlgorithmStart} possibleVariables={new Set("a")}/>
+        <PreAlgoModal selectedAlgorithm={preSelectedAlgorithm} handleClose={handleCloseAlgoStart} handleStart={handleAlgorithmStart} possibleVariables={possibleVariables}/>
 
         {/* Main Content Area */}
         <div className="flex-grow-1 d-flex">

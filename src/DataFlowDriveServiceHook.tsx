@@ -17,6 +17,7 @@ interface DataFlowServiceState {
     canStepBackward: boolean;
     programErrors: Array<{ line: number; reason: string }>;
     canSelectAlgorithm: boolean;
+    possibleVariables: Set<string>;
 }
 
 /**
@@ -52,7 +53,8 @@ export function useDataFlowService({initialProgramText} : DataFlowServiceProps):
         canStepBackward: service.canStepBackward(),
         programErrors: [],
         currentAlgorithm: service.currentAlgorithm,
-        canSelectAlgorithm: service.canSelectAlgorithm()
+        canSelectAlgorithm: service.canSelectAlgorithm(),
+        possibleVariables: service.getPossibleVariables(),
     });
 
     // Hilfsfunktion, um den aktuellen Zustand zu aktualisieren
@@ -64,23 +66,24 @@ export function useDataFlowService({initialProgramText} : DataFlowServiceProps):
             canStepBackward: service.canStepBackward(),
             currentAlgorithm: service.currentAlgorithm,
             canSelectAlgorithm: service.canSelectAlgorithm(),
-            programErrors: state.programErrors, // Fehler bleiben erhalten, bis ein neues Programm gesetzt wird
+            programErrors: state.programErrors,
+            possibleVariables: service.getPossibleVariables(),// Fehler bleiben erhalten, bis ein neues Programm gesetzt wird
         });
     }, [service, state.programErrors]);
 
     // Funktion zum Setzen des Programmtexts
     const setProgramText = useCallback((text: string) => {
         const errors = service.trySetNewProgram(text);
-        setState(prevState => ({
-            ...prevState,
+        setState({
             programText: text,
             programErrors: errors,
             currentValue: service.currentStepValue(),
             canStepForward: service.canStepForward(),
             canStepBackward: service.canStepBackward(),
             currentAlgorithm: service.currentAlgorithm,
-            canSelectAlgorithm: service.canSelectAlgorithm()
-        }));
+            canSelectAlgorithm: service.canSelectAlgorithm(),
+            possibleVariables: service.getPossibleVariables(),
+        });
     }, [service]);
 
     // Funktion zum Setzen des Algorithmus

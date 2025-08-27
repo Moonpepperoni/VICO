@@ -128,6 +128,12 @@ export class DataFlowDriveService {
         this.engine = undefined;
     }
 
+    getPossibleVariables() : Set<string> {
+        if (this.currentProgram === undefined) return new Set();
+        if (this.currentProgram.validity === 'invalid') return new Set();
+        return this.currentProgram.tacProgram.usedVariables
+    }
+
     trySetNewProgram(programText: string) {
         // reset the engine if it is currently running
         this.engine = undefined;
