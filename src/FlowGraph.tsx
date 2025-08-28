@@ -4,13 +4,14 @@ import {
     type Edge,
     MiniMap,
     type Node,
-    type OnNodesChange,
+    type OnNodesChange, Panel,
     ReactFlow
 } from "@xyflow/react";
 import React from "react";
 import '@xyflow/react/dist/style.css';
 import FlowNode from "./FlowNode.tsx";
 import FlowEdge from "./FlowEdgeData.tsx";
+import {SymbolLegend} from "./SymbolLegend.tsx";
 
 // CARE!: the onNodesChange is never used but is required to put ReactFlow in controlledFlow mode, which is needed
 // so that we can access the measured attributes on nodes
@@ -34,6 +35,7 @@ export const FlowGraph:React.FC<FlowGraphProps> = ({nodes, edges, onNodesChange}
             <Background />
             <Controls showInteractive={false} />
             <MiniMap pannable={true}></MiniMap>
+            <Panel position={'top-left'}><SymbolLegend/></Panel>
         </ReactFlow>
     </>
 };

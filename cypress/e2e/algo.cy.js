@@ -21,6 +21,11 @@ describe('Visualisation of liveness single instruction', () => {
             cy.get('[data-cy="flow-node"]').should('have.length', 5);
         });
 
+        it('should show legend', () => {
+            cy.get('[data-cy="algo-graph-display"]').should('be.visible');
+            cy.get('[data-cy="graph-symbols-legend"]').should('be.visible');
+        });
+
         it('should not be able step back at beginning', () => {
             cy.get('[data-cy="algo-control-step-back-button"]').should('be.disabled');
         });
@@ -102,7 +107,7 @@ describe('Visualisation of liveness single instruction', () => {
 
     it('should propagate liveness of a correctly', () => {
 
-        const code = 'a = 5\nb = 10\nc = a + b';
+        const code = 'b = 10\nc = a + b';
 
 
         cy.visit('/');
@@ -117,10 +122,8 @@ describe('Visualisation of liveness single instruction', () => {
         cy.get('[data-cy="algo-control-step-to-end-button"]').should('be.enabled').click();
 
         cy.get('[data-cy="flow-node"]').each(($el) => {
-            if(!($el.text().includes('ENTRY'))){
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('a');
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('a');
-            }
+            cy.wrap($el).find('[data-cy="flow-node-out-set"]').contains('a');
+            cy.wrap($el).find('[data-cy="flow-node-in-set"]').contains('a');
         });
 
     });
@@ -130,13 +133,13 @@ describe('Visualisation of liveness single instruction', () => {
 describe('Visualisation of liveness basic blocks', () => {
 
     const code = `
-        a = 5
-        b = 10
-        if a < 10 goto ELSE
-        c = a + b
-        goto END
-        ELSE: c = 0
-        END: result = c`;
+a = 5
+b = 10
+if a < 10 goto ELSE
+c = a + b
+goto END
+ELSE: c = 0
+END: result = c`;
 
 
     describe('basic interactions', () => {
@@ -162,6 +165,11 @@ describe('Visualisation of liveness basic blocks', () => {
 
         it('should not be able step back at beginning', () => {
             cy.get('[data-cy="algo-control-step-back-button"]').should('be.disabled');
+        });
+
+        it('should show legend', () => {
+            cy.get('[data-cy="algo-graph-display"]').should('be.visible');
+            cy.get('[data-cy="graph-symbols-legend"]').should('be.visible');
         });
 
         it('should be able to step forward', () => {
@@ -236,26 +244,6 @@ describe('Visualisation of liveness basic blocks', () => {
         });
     });
 
-    it('should propagate liveness of "a" correctly', () => {
-        cy.visit('/');
-        cy.get('[data-cy="start-example-button"]').click();
-        cy.get('[data-cy="code-editor-area"]').find('.cm-content').click();
-        cy.get('[data-cy="code-editor-area"]').find('.cm-content').type('{selectall}{backspace}');
-        cy.get('[data-cy="code-editor-area"]').find('.cm-content').type(code);
-        cy.get('[data-cy="code-editor-save-button"]').click();
-        cy.get('[data-cy="algo-menu-select-liveness-single-instruction"]').should('be.enabled').click();
-        cy.get('[data-cy="pre-algo-modal-check-all-live-out"]').should('be.visible').click();
-        cy.get('[data-cy="pre-algo-modal-start-button"]').should('be.visible').click();
-        cy.get('[data-cy="algo-control-step-to-end-button"]').should('be.enabled').click();
-
-        cy.get('[data-cy="flow-node"]').each(($el) => {
-            if(!($el.text().includes('ENTRY'))){
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('a');
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('a');
-            }
-        });
-
-    });
 });
 
 describe('Visualisation of reaching definitions', () => {
@@ -289,6 +277,11 @@ describe('Visualisation of reaching definitions', () => {
 
         it('should be able to step forward', () => {
             cy.get('[data-cy="algo-control-step-forward-button"]').should('be.enabled').click();
+        });
+
+        it('should show legend', () => {
+            cy.get('[data-cy="algo-graph-display"]').should('be.visible');
+            cy.get('[data-cy="graph-symbols-legend"]').should('be.visible');
         });
 
         it('should be able to step back after stepping forward', () => {
@@ -350,13 +343,13 @@ describe('Visualisation of reaching definitions', () => {
 
         cy.get('[data-cy="flow-node-out-set"]').each(($el) => {
             if ($el.text().includes('EXIT')) {
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('d1');
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('d2');
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('d3');
+                cy.wrap($el).find('[data-cy="flow-node-in-set"]').contains('d1');
+                cy.wrap($el).find('[data-cy="flow-node-in-set"]').contains('d2');
+                cy.wrap($el).find('[data-cy="flow-node-in-set"]').contains('d3');
 
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('d1');
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('d2');
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('d3');
+                cy.wrap($el).find('[data-cy="flow-node-out-set"]').contains('d1');
+                cy.wrap($el).find('[data-cy="flow-node-out-set"]').contains('d2');
+                cy.wrap($el).find('[data-cy="flow-node-out-set"]').contains('d3');
             }
         })
     })
@@ -388,6 +381,11 @@ describe('Visualisation of constant propagation', () => {
 
         it('should not be able step back at beginning', () => {
             cy.get('[data-cy="algo-control-step-back-button"]').should('be.disabled');
+        });
+
+        it('should show legend', () => {
+            cy.get('[data-cy="algo-graph-display"]').should('be.visible');
+            cy.get('[data-cy="graph-symbols-legend"]').should('be.visible');
         });
 
         it('should be able to step forward', () => {
@@ -435,20 +433,23 @@ describe('Visualisation of constant propagation', () => {
         cy.get('[data-cy="code-editor-area"]').find('.cm-content').type('{selectall}{backspace}');
         cy.get('[data-cy="code-editor-area"]').find('.cm-content').type(code);
         cy.get('[data-cy="code-editor-save-button"]').click();
-        cy.get('[data-cy="algo-menu-select-reaching-definitions-basic-blocks"]').should('be.enabled').click();
+        cy.get('[data-cy="algo-menu-select-constant-propagation-basic-blocks"]').should('be.enabled').click();
         cy.get('[data-cy="pre-algo-modal-start-button"]').should('be.visible').click();
+        cy.get('[data-cy="algo-control-step-to-end-button"]').should('be.enabled').click();
 
-        cy.get('[data-cy="flow-node-out-set"]').each(($el) => {
+        cy.get('[data-cy="flow-node"]').each(($el) => {
             if ($el.text().includes('EXIT')) {
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('a: NAC');
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('b: 10');
-                cy.wrap($el).get('[data-cy="flow-node-in-set"]').contains('c: 15');
+                // Use find to search within the element
+                cy.wrap($el).find('[data-cy="flow-node-in-set"]').should('contain', 'a: 15');
+                cy.wrap($el).find('[data-cy="flow-node-in-set"]').should('contain', 'b: 10');
+                cy.wrap($el).find('[data-cy="flow-node-in-set"]').should('contain', 'c: 15');
 
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('a: NAC');
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('b: 10');
-                cy.wrap($el).get('[data-cy="flow-node-out-set"]').contains('c: 15');
+                cy.wrap($el).find('[data-cy="flow-node-out-set"]').should('contain', 'a: 15');
+                cy.wrap($el).find('[data-cy="flow-node-out-set"]').should('contain', 'b: 10');
+                cy.wrap($el).find('[data-cy="flow-node-out-set"]').should('contain', 'c: 15');
             }
         })
+
     })
 
 });

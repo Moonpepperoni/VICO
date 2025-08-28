@@ -1,6 +1,8 @@
 import {Handle, type Node, type NodeProps, Position} from '@xyflow/react';
 import {Badge, Card} from 'react-bootstrap';
 import type {FlowNodeState, FlowValue, FlowValueData} from "./service/data-flow-drive-service.ts";
+import {LookAtBadge} from "./LookAtBadge.tsx";
+import {ChangedBadge} from "./ChangedBadge.tsx";
 
 type FlowNode = Node<FlowNodeState, 'number'>;
 
@@ -36,20 +38,14 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
             <Handle type="target" position={Position.Top} style={{visibility: 'hidden'}}/>
 
             <Card.Header data-cy="flow-node-in-set" className={"bg-light"}>
-                <small className="text-muted">in: </small>
-                <Badge bg={inValue.changed ? 'info' : "secondary"} className="py-1">{inRep || "∅"}</Badge> {' '}
-                <Badge bg="warning" className="py-1" style={{visibility: inValue.lookedAt ? 'visible' : 'hidden'}}>
-                    <svg height="20px" width="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" fill="#0D0D0D"/>
-                        <path
-                            d="M21.894 11.553C19.736 7.236 15.904 5 12 5c-3.903 0-7.736 2.236-9.894 6.553a1 1 0 0 0 0 .894C4.264 16.764 8.096 19 12 19c3.903 0 7.736-2.236 9.894-6.553a1 1 0 0 0 0-.894zM12 17c-2.969 0-6.002-1.62-7.87-5C5.998 8.62 9.03 7 12 7c2.969 0 6.002 1.62 7.87 5-1.868 3.38-4.901 5-7.87 5z"
-                            fill="#0D0D0D"/>
-                    </svg>
-                </Badge>
+                <small className="text-muted">in: </small>{' '}
+                <Badge className="py-1">{inRep || "∅"}</Badge> {' '}
+                <LookAtBadge show={inValue.lookedAt} /> {' '}
+                <ChangedBadge show={inValue.changed} />{' '}
             </Card.Header>
             {data.kind === 'entry' &&
                 <h3 style={{alignSelf: 'center', justifyContent: 'space-around'}}>
-                    ENTRY
+                ENTRY
                 </h3>}
             {data.kind === 'exit' &&
                 <h3 style={{alignSelf: 'center', justifyContent: 'space-around'}}>
@@ -83,16 +79,7 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
                                     <div key={index} className="mb-1">
                                         <small className="text-muted">{key}:</small> {' '}
                                         <Badge bg="secondary" className="py-1">{value.data || "∅"}</Badge> {' '}
-                                        <Badge bg="warning" className="py-1"
-                                               style={{visibility: value.lookedAt ? 'visible' : 'hidden'}}>
-                                            <svg height="20px" width="20px" viewBox="0 0 24 24" fill="none"
-                                                 xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" fill="#0D0D0D"/>
-                                                <path
-                                                    d="M21.894 11.553C19.736 7.236 15.904 5 12 5c-3.903 0-7.736 2.236-9.894 6.553a1 1 0 0 0 0 .894C4.264 16.764 8.096 19 12 19c3.903 0 7.736-2.236 9.894-6.553a1 1 0 0 0 0-.894zM12 17c-2.969 0-6.002-1.62-7.87-5C5.998 8.62 9.03 7 12 7c2.969 0 6.002 1.62 7.87 5-1.868 3.38-4.901 5-7.87 5z"
-                                                    fill="#0D0D0D"/>
-                                            </svg>
-                                        </Badge>
+                                        <LookAtBadge show={value.lookedAt}/>
                                     </div>
                                 ))}
                             </div>}
@@ -100,16 +87,11 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
                 </Card.Body>
             }
             <Card.Footer data-cy="flow-node-out-set" className={"bg-light"}>
+
                 <small className="text-muted">out:</small> {' '}
-                <Badge bg={outValue.changed ? 'info' : "secondary"} className="py-1">{outRep || "∅"}</Badge> {' '}
-                <Badge bg="warning" className="py-1" style={{visibility: outValue.lookedAt ? 'visible' : 'hidden'}}>
-                    <svg height="20px" width="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" fill="#0D0D0D"/>
-                        <path
-                            d="M21.894 11.553C19.736 7.236 15.904 5 12 5c-3.903 0-7.736 2.236-9.894 6.553a1 1 0 0 0 0 .894C4.264 16.764 8.096 19 12 19c3.903 0 7.736-2.236 9.894-6.553a1 1 0 0 0 0-.894zM12 17c-2.969 0-6.002-1.62-7.87-5C5.998 8.62 9.03 7 12 7c2.969 0 6.002 1.62 7.87 5-1.868 3.38-4.901 5-7.87 5z"
-                            fill="#0D0D0D"/>
-                    </svg>
-                </Badge>
+                <Badge className="py-1">{outRep || "∅"}</Badge> {' '}
+                <ChangedBadge show={outValue.changed} /> {' '}
+                <LookAtBadge show={outValue.lookedAt} /> {' '}
             </Card.Footer>
 
             <Handle type="source" position={Position.Bottom} style={{visibility: 'hidden'}}/>
