@@ -1,9 +1,345 @@
 import { describe, expect, it } from 'vitest';
-import { extractDefinitions } from './constant-propagation';
+import {
+    ConstantPropagation,
+    type ConstantPropagationInput, type ConstantPropagationState,
+    type Definition,
+    extractDefinitions, type PropagationBinaryArithmeticOperator, type PropagationUnaryOperator
+} from './constant-propagation';
 import { TacProgram } from '../tac/program';
 import { BasicBlockControlFlowGraph } from '../cfg/basic-blocks';
 import { TacParser } from "../tac/parser.ts";
 import type { TacInstruction } from "../tac/parser-types.ts";
+import {TestCfg} from "./test-cfg.ts";
+import {enableMapSet} from "immer";
+
+enableMapSet();
+
+type UseVar = { kind: 'variable', value: string };
+type UseConst = { kind: 'constant', value: number };
+
+export const u = {
+    v: (name: string): UseVar => ({ kind: 'variable', value: name }),
+    c: (value: number): UseConst => ({ kind: 'constant', value }),
+};
+
+export const d = {
+    copy: (target: string, use: UseVar | UseConst): Definition => ({
+        kind: 'copy',
+        target,
+        use1: use,
+    }),
+    unary: (
+        target: string,
+        op: PropagationUnaryOperator,
+        use: UseVar | UseConst
+    ): Definition => ({
+        kind: 'unary',
+        target,
+        op,
+        use1: use,
+    }),
+    binary: (
+        target: string,
+        op: PropagationBinaryArithmeticOperator,
+        left: UseVar | UseConst,
+        right: UseVar | UseConst
+    ): Definition => ({
+        kind: 'binary',
+        target,
+        op,
+        use1: left,
+        use2: right,
+    }),
+};
+
+
+class ConstantPropagationInputBuilder {
+    readonly entryId = 0;
+    readonly exitId = -1;
+    readonly edgeList: Array<[number, number]> = [];
+    readonly dataNodeIds: number[] = [];
+    readonly definitions = new Map<number, Array<Definition>>();
+    private nextNodeId = 1;
+
+    addNode({definitions = []}: { definitions?: Definition[] }) {
+        const id = this.nextNodeId++;
+        this.dataNodeIds.push(id);
+        this.definitions.set(id, definitions);
+        return id;
+    }
+
+    addEdges(src: number, ...targets: number[]) {
+        this.edgeList.push(...(targets.map(t => [src, t] as [number, number])));
+    }
+
+    build(): ConstantPropagationInput {
+        const predecessors = new Map<number, Set<number>>();
+        const successors = new Map<number, Set<number>>();
+        for (const [src, dst] of this.edgeList) {
+            if (!predecessors.has(dst)) {
+                predecessors.set(dst, new Set([]));
+            }
+            predecessors.get(dst)?.add(src);
+        }
+        for (const [src, dst] of this.edgeList) {
+            if (!successors.has(src)) {
+                successors.set(src, new Set([]));
+            }
+            successors.get(src)?.add(dst);
+        }
+
+        return {
+            cfg: new TestCfg(this.dataNodeIds, this.entryId, this.exitId, [this.entryId, ...this.dataNodeIds, this.exitId], predecessors, successors),
+            definitions: this.definitions,
+        }
+    }
+}
+
+function getFinalState(analysis: Generator<ConstantPropagationState>) {
+    let finalState: ConstantPropagationState | undefined = undefined;
+
+    for (const step of analysis) {
+        finalState = step;
+    }
+    if (finalState === undefined) throw new Error("the generator yielded no steps");
+    return finalState;
+}
+
+function expectOutEquals(testCFG: ConstantPropagationInput, expectedOut: Map<number, Map<string, string>>) {
+    const analysis = ConstantPropagation(testCFG);
+    const finalState = getFinalState(analysis);
+    for (const [id, map] of expectedOut) {
+        const actual = finalState.state.get(id)?.outMap.data;
+        expect(actual, `out map of node ${id} did not match`).toEqual(map);
+    }
+}
+
+function expectInEquals(testCFG: ConstantPropagationInput, expectedIn: Map<number, Map<string, string>>) {
+    const analysis = ConstantPropagation(testCFG);
+    const finalState = getFinalState(analysis);
+    for (const [id, map] of expectedIn) {
+        const actual = finalState.state.get(id)?.inMap.data;
+        expect(actual, `in map of node ${id} did not match`).toEqual(map);
+    }
+}
+
+describe('ReachingDefinitions Algo Test', () => {
+    describe('linear code examples', () => {
+
+        it('should overwrite variables from a previous block in new block', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 1
+            // b = 2
+            // c = 3
+            // goto LABEL1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(1)), d.copy('b', u.c(2)), d.copy('c', u.c(3))]});
+            // LABEL1: a = 10
+            // c = a + b
+            // goto LABEL2
+            const n2 = inputBuilder.addNode({definitions: [d.copy('a', u.c(10)), d.binary('c', '+',u.v('a'), u.v('b'))]});
+            // LABEL2: result = - c
+            // final = c + k
+            const n3 = inputBuilder.addNode({definitions: [d.unary('result', '-', u.v('c')), d.binary('final', '+', u.v('c'), u.v('k'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n3, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '1'], ['b', '2'], ['c', '3']])],
+                [n3, new Map([['a', '10'], ['b', '2'], ['c', '12']])],
+                [inputBuilder.exitId, new Map([['a', '10'], ['b', '2'], ['c', '12'], ['result', '-12'], ['final', 'UNDEF']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '1'], ['b', '2'], ['c', '3']])],
+                [n2, new Map([['a', '10'], ['b', '2'], ['c', '12']])],
+                [n3, new Map([['a', '10'], ['b', '2'], ['c', '12'], ['result', '-12'], ['final', 'UNDEF']])],
+                [inputBuilder.exitId, new Map([['a', '10'], ['b', '2'], ['c', '12'], ['result', '-12'], ['final', 'UNDEF']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
+        it('should apply lattice correctly to +', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+            // a = 1
+            // b = a + 2
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(1)), d.binary('b', '+', u.v('a'), u.c(2))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const algo = ConstantPropagation(algoInput);
+            const finalState = getFinalState(algo);
+            expect(finalState.state.get(inputBuilder.exitId)?.outMap.data).toEqual(new Map([['a', '1'], ['b', '3']]));
+        });
+
+        it('should apply lattice correctly to -', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+            // a = 1
+            // b = a - 2
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(1)), d.binary('b', '-', u.v('a'), u.c(2))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const algo = ConstantPropagation(algoInput);
+            const finalState = getFinalState(algo);
+            expect(finalState.state.get(inputBuilder.exitId)?.outMap.data).toEqual(new Map([['a', '1'], ['b', '-1']]));
+        });
+
+        it('should apply lattice correctly to *', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+            // a = 1
+            // b = a * 2
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(1)), d.binary('b', '*', u.v('a'), u.c(2))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const algo = ConstantPropagation(algoInput);
+            const finalState = getFinalState(algo);
+            expect(finalState.state.get(inputBuilder.exitId)?.outMap.data).toEqual(new Map([['a', '1'], ['b', '2']]));
+        });
+
+        it('should apply lattice correctly to /', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+            // a = 1
+            // b = a / 2
+            // c = 4 / 2
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(1)), d.binary('b', '/', u.v('a'), u.c(2)), d.binary('c', '/',u.c(4),u.c(2) )]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const algo = ConstantPropagation(algoInput);
+            const finalState = getFinalState(algo);
+            expect(finalState.state.get(inputBuilder.exitId)?.outMap.data).toEqual(new Map([['a', '1'], ['b', '0'], ['c', '2']]));
+        });
+
+        it('should apply lattice correctly to %', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+            // a = 3
+            // b = a % 2
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(3)), d.binary('b', '%', u.v('a'), u.c(2))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const algo = ConstantPropagation(algoInput);
+            const finalState = getFinalState(algo);
+            expect(finalState.state.get(inputBuilder.exitId)?.outMap.data).toEqual(new Map([['a', '3'], ['b', '1']]));
+        });
+
+        it('should apply lattice correctly to copy', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+            // a = 3
+            // b = a
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(3)), d.copy('b',u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const algo = ConstantPropagation(algoInput);
+            const finalState = getFinalState(algo);
+            expect(finalState.state.get(inputBuilder.exitId)?.outMap.data).toEqual(new Map([['a', '3'], ['b', '3']]));
+        });
+
+        it('should apply lattice correctly to unary -', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+            // a = 3
+            // b = - a
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(3)), d.unary('b', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const algo = ConstantPropagation(algoInput);
+            const finalState = getFinalState(algo);
+            expect(finalState.state.get(inputBuilder.exitId)?.outMap.data).toEqual(new Map([['a', '3'], ['b', '-3']]));
+        });
+    });
+
+    describe('two branches', () => {
+        it('two_branches: variable assigned same constant in both branches, join keeps constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // x = 1
+            // if x > 0 goto LABEL1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('x', u.c(1))]});
+
+            // basic block 2:
+            // LABEL1: a = 42
+            // goto LABEL3
+            const n2 = inputBuilder.addNode({definitions: [d.copy('a', u.c(42))]});
+
+            // basic block 3:
+            // LABEL2: a = 42
+            const n3 = inputBuilder.addNode({definitions: [d.copy('a', u.c(42))]});
+
+            // basic block 4:
+            // LABEL3: c = a + 8
+            // result = - a
+            const n4 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(8)), d.unary('result', '-', u.v('a'))]});
+
+            // wire CFG (include implicit entry/exit explicitly for jumps/flow)
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2); // if-true to LABEL1
+            inputBuilder.addEdges(n1, n3); // fallthrough/else to LABEL2
+            inputBuilder.addEdges(n2, n4); // goto LABEL3
+            inputBuilder.addEdges(n3, n4); // fallthrough to LABEL3
+            inputBuilder.addEdges(n4, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['x', '1']])],
+                [n3, new Map([['x', '1']])],
+                [n4, new Map([['x', '1'], ['a', '42']])],
+                [inputBuilder.exitId, new Map([['x', '1'], ['a', '42'], ['c', '50'], ['result', '-42']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['x', '1']])],
+                [n2, new Map([['x', '1'], ['a', '42']])],
+                [n3, new Map([['x', '1'], ['a', '42']])],
+                [n4, new Map([['x', '1'], ['a', '42'], ['c', '50'], ['result', '-42']])],
+                [inputBuilder.exitId, new Map([['x', '1'], ['a', '42'], ['c', '50'], ['result', '-42']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+    })
+});
 
 describe('extractDefinitions', () => {
     function createBasicBlocksMapFromCode(code: string) {

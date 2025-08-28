@@ -7,61 +7,16 @@ import {
     type LivenessState
 } from "./liveness.ts";
 import {enableMapSet} from "immer";
-import type {ControlFlowGraph} from "../cfg/graph.ts";
 import type {TacInstruction} from "../tac/parser-types.ts";
 import {readProgramFromText} from "../tac/program.ts";
 import {SingleInstructionGraph} from "../cfg/single-instruction.ts";
 import {BasicBlockControlFlowGraph} from "../cfg/basic-blocks.ts";
+import {TestCfg} from "./test-cfg.ts";
 
 // must be enabled for the tests
 enableMapSet();
 
-class TestLivenessCfg implements ControlFlowGraph {
-    dataNodeIds: Array<number>;
-    entryId: number;
-    exitId: number;
-    nodeIds: Array<number>;
-    readonly predecessors: Map<number, Set<number>> = new Map();
-    readonly successors: Map<number, Set<number>> = new Map();
 
-    constructor(dataNodeIds: Array<number>, entryId: number, exitId: number, nodeIds: Array<number>, predecessors: Map<number, Set<number>>, successors: Map<number, Set<number>>) {
-        this.dataNodeIds = dataNodeIds;
-        this.entryId = entryId;
-        this.exitId = exitId;
-        this.nodeIds = nodeIds;
-        this.predecessors = predecessors;
-        this.successors = successors;
-    }
-
-    getAllPredecessors(): Map<number, Set<number>> {
-        return this.predecessors;
-    }
-
-    getAllSuccessors(): Map<number, Set<number>> {
-        return this.successors;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    getNodeInstructions(_nodeId: number): Map<number, TacInstruction> | undefined {
-        throw new Error("not mocked");
-    }
-
-    getNodePredecessors(nodeId: number): Set<number> | undefined {
-        return this.predecessors.get(nodeId);
-    }
-
-    getNodeSuccessors(nodeId: number): Set<number> | undefined {
-        return this.successors.get(nodeId);
-    }
-
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    isBackEdge(_from: number, _to: number): boolean {
-        throw new Error("not mocked");
-    }
-
-
-}
 
 class LivenessInputBuilder {
     readonly entryId = 0;
@@ -102,7 +57,7 @@ class LivenessInputBuilder {
         }
 
         return {
-            cfg: new TestLivenessCfg(this.dataNodeIds, this.entryId, this.exitId, [this.entryId, ...this.dataNodeIds, this.exitId], predecessors, successors),
+            cfg: new TestCfg(this.dataNodeIds, this.entryId, this.exitId, [this.entryId, ...this.dataNodeIds, this.exitId], predecessors, successors),
             def: this.defSets,
             use: this.useSets,
         }
@@ -239,564 +194,668 @@ describe("Liveness Analysis", () => {
         describe("Complex Control Flow Tests", () => {
             // 1. Simple Branching - Two execution paths
             describe("Simple Branching with Two Paths", () => {
-                test("variables defined in branches are live in joining node", () => {
+                test("two_branches, variable defined before the branch and used in both branches", () => {
                     const builder = new LivenessInputBuilder();
+
                     // x = 5
-                    const n1 = builder.addNode({def: ['x']});
-                    // if (x > 0) goto L1
-                    const n2 = builder.addNode({use: ['x']});
-                    // then: y = 10
-                    const n3 = builder.addNode({def: ['y']});
+                    const n1 = builder.addNode({def: ["x"]});
+
+                    // if (1 < 2) goto L1
+                    const n2 = builder.addNode({});
+
                     // goto L2
-                    const n4 = builder.addNode({});
-                    // L1: else: z = 20
-                    const n5 = builder.addNode({def: ['z']});
-                    // L2: result = y + z
-                    const n6 = builder.addNode({def: ['result'], use: ['y', 'z']});
+                    const n3 = builder.addNode({});
+
+                    // L1: y = x
+                    const n4 = builder.addNode({def: ["y"], use: ["x"]});
+
+                    // goto L3
+                    const n5 = builder.addNode({});
+
+                    // L2: z = x
+                    const n6 = builder.addNode({def: ["z"], use: ["x"]});
+
+                    // goto L3
+                    const n7 = builder.addNode({});
+
+                    // L3: result = 0
+                    const n8 = builder.addNode({def: ["result"]});
 
                     builder.addEdges(builder.entryId, n1);
                     builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n3, n5); // Branch point
-                    builder.addEdges(n3, n4);
-                    builder.addEdges(n4, n6);
-                    builder.addEdges(n5, n6); // Paths join
-                    builder.addEdges(n6, builder.exitId);
+                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n3, n6);
+                    builder.addEdges(n4, n5);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n8);
+                    builder.addEdges(n8, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
                     const expectedIn = new Map([
-                        [0, new Set(['y', 'z'])],   // Entry: y,z needed after branch, not defined before
-                        [1, new Set(['y', 'z'])],   // n1: y,z needed after branch, not defined before
-                        [2, new Set(['x', 'y', 'z'])], // n2: x used here, y,z needed after branch
-                        [3, new Set(['z'])],        // n3: z needed in n6, y defined here
-                        [4, new Set(['y', 'z'])],   // n4: y,z needed in n6
-                        [5, new Set(['y'])],        // n5: y needed in n6, z defined here
-                        [6, new Set(['y', 'z'])],   // n6: y,z used here
-                        [-1, new Set([])]             // Exit: nothing lives out
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set([])],
+                        [n8, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set(['y', 'z'])],   // Entry -> n1
-                        [1, new Set(['x', 'y', 'z'])], // n1 -> n2
-                        [2, new Set(['y', 'z'])],   // n2 -> n3/n5
-                        [3, new Set(['y', 'z'])],   // n3 -> n4
-                        [4, new Set(['y', 'z'])],   // n4 -> n6
-                        [5, new Set(['y', 'z'])],   // n5 -> n6
-                        [6, new Set([])],            // n6 -> Exit
-                        [-1, new Set([])]            // Exit
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set([])],
+                        [n5, new Set([])],
+                        [n6, new Set([])],
+                        [n7, new Set([])],
+                        [n8, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
 
-                test("variables only used in one branch are not live in the other branch", () => {
+                test("two_branches, variable defined in only one branch and used after the join", () => {
                     const builder = new LivenessInputBuilder();
-                    // x = 5
-                    const n1 = builder.addNode({def: ['x']});
-                    // if (x > 0) goto L1
-                    const n2 = builder.addNode({use: ['x']});
-                    // then: y = x + 10
-                    const n3 = builder.addNode({def: ['y'], use: ['x']});
+
+                    // if 1 < 2 goto L1
+                    const n1 = builder.addNode({});
                     // goto L2
+                    const n2 = builder.addNode({});
+                    // L1: x = 10
+                    const n3 = builder.addNode({def: ["x"]});
+                    // goto L3
                     const n4 = builder.addNode({});
-                    // L1: else: z = 20
-                    const n5 = builder.addNode({def: ['z']});
-                    // L2: return y
-                    const n6 = builder.addNode({use: ['y']});
+                    // L2: y = 0
+                    const n5 = builder.addNode({def: ["y"]});
+                    // goto L3
+                    const n6 = builder.addNode({});
+                    // L3: result = x
+                    const n7 = builder.addNode({def: ["result"], use: ["x"]});
 
                     builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n3, n5);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n5);
                     builder.addEdges(n3, n4);
-                    builder.addEdges(n4, n6);
+                    builder.addEdges(n4, n7);
                     builder.addEdges(n5, n6);
-                    builder.addEdges(n6, builder.exitId);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
                     const expectedIn = new Map([
-                        [0, new Set(['y'])],      // Entry: y needed after branch, not defined before
-                        [1, new Set(['y'])],      // n1: y needed after branch, not defined before
-                        [2, new Set(['x', 'y'])], // n2: x used here, y needed after branch
-                        [3, new Set(['x'])],     // n3: x used here
-                        [4, new Set(['y'])],     // n4: y needed for n6
-                        [5, new Set(['y'])],     // n5: y needed for n6, not defined here
-                        [6, new Set(['y'])],     // n6: y used here
-                        [-1, new Set([])]          // Exit: nothing lives out
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set(['y'])],      // Entry -> n1
-                        [1, new Set(['x', 'y'])], // n1 -> n2
-                        [2, new Set(['x', 'y'])], // n2 -> n3/n5
-                        [3, new Set(['y'])],     // n3 -> n4
-                        [4, new Set(['y'])],     // n4 -> n6
-                        [5, new Set(['y'])],     // n5 -> n6
-                        [6, new Set([])],         // n6 -> Exit
-                        [-1, new Set([])]         // Exit
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
 
-                test("liveness with variables defined before branch and used after join", () => {
+                test("two_branches, variable defined in both branches and used after the join", () => {
                     const builder = new LivenessInputBuilder();
-                    // x = 5, v = 100
-                    const n1 = builder.addNode({def: ['x', 'v']});
-                    // if (x > 0) goto L1
-                    const n2 = builder.addNode({use: ['x']});
-                    // then: y = 10
-                    const n3 = builder.addNode({def: ['y']});
+
+                    // if 1 < 2 goto L1
+                    const n1 = builder.addNode({});
                     // goto L2
+                    const n2 = builder.addNode({});
+                    // L1: x = 10
+                    const n3 = builder.addNode({ def: ["x"] });
+                    // goto L3
                     const n4 = builder.addNode({});
-                    // L1: else: z = 20
-                    const n5 = builder.addNode({def: ['z']});
-                    // L2: result = v
-                    const n6 = builder.addNode({def: ['result'], use: ['v']});
+                    // L2: x = 20
+                    const n5 = builder.addNode({ def: ["x"] });
+                    // goto L3
+                    const n6 = builder.addNode({});
+                    // L3: result = x
+                    const n7 = builder.addNode({ def: ["result"], use: ["x"] });
 
                     builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n3, n5);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n5);
                     builder.addEdges(n3, n4);
-                    builder.addEdges(n4, n6);
+                    builder.addEdges(n4, n7);
                     builder.addEdges(n5, n6);
-                    builder.addEdges(n6, builder.exitId);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
                     const expectedIn = new Map([
-                        [0, new Set([])],          // Entry: nothing flows back, v defined in n1
-                        [1, new Set([])],          // n1: nothing flows back
-                        [2, new Set(['x', 'v'])], // n2: x used here, v needed for n6
-                        [3, new Set(['v'])],     // n3: v needed for n6
-                        [4, new Set(['v'])],     // n4: v needed for n6
-                        [5, new Set(['v'])],     // n5: v needed for n6
-                        [6, new Set(['v'])],     // n6: v used here
-                        [-1, new Set([])]          // Exit: nothing lives out
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set([])],          // Entry -> n1
-                        [1, new Set(['x', 'v'])], // n1 -> n2
-                        [2, new Set(['v'])],     // n2 -> n3/n5
-                        [3, new Set(['v'])],     // n3 -> n4
-                        [4, new Set(['v'])],     // n4 -> n6
-                        [5, new Set(['v'])],     // n5 -> n6
-                        [6, new Set([])],          // n6 -> Exit
-                        [-1, new Set([])]          // Exit
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
+                test("two_branches, variable defined in one branch and only used in that branch", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if 1 < 2 goto L1
+                    const n1 = builder.addNode({});
+                    // goto L2
+                    const n2 = builder.addNode({});
+                    // L1: x = 10
+                    const n3 = builder.addNode({ def: ["x"] });
+                    // L1: y = x
+                    const n4 = builder.addNode({ def: ["y"], use: ["x"] });
+                    // goto L3
+                    const n5 = builder.addNode({});
+                    // L2: z = 0
+                    const n6 = builder.addNode({ def: ["z"] });
+                    // goto L3
+                    const n7 = builder.addNode({});
+                    // L3: result = 0
+                    const n8 = builder.addNode({ def: ["result"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n6);
+                    builder.addEdges(n3, n4);
+                    builder.addEdges(n4, n5);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n8);
+                    builder.addEdges(n8, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set([])],
+                        [n7, new Set([])],
+                        [n8, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set([])],
+                        [n5, new Set([])],
+                        [n6, new Set([])],
+                        [n7, new Set([])],
+                        [n8, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+
+
             });
 
             // 2. Complex Branching - Three execution paths
             describe("Complex Branching with Three Paths", () => {
-                test("three-way branches - def before branch, use after join", () => {
+                test("three_branches, variable defined before the branch and used in all three arms", () => {
                     const builder = new LivenessInputBuilder();
 
                     // x = 5
-                    const n1 = builder.addNode({def: ['x']});
-                    // if (x < 0) goto L1
-                    const n2 = builder.addNode({use: ['x']});
-                    // if (x > 10) goto L2
-                    const n3 = builder.addNode({use: ['x']});
-                    // goto L3 (middle)
-                    const n4 = builder.addNode({});
-                    // L1:
+                    const n1 = builder.addNode({ def: ["x"] });
+                    // if (1 < 2) goto L1
+                    const n2 = builder.addNode({});
+                    // if (2 < 3) goto L2
+                    const n3 = builder.addNode({});
+                    // L1: y = x
+                    const n4 = builder.addNode({ def: ["y"], use: ["x"] });
+                    // goto L4
                     const n5 = builder.addNode({});
-                    // L2:
-                    const n6 = builder.addNode({});
-                    // L3: result = x
-                    const n7 = builder.addNode({def: ['result'], use: ['x']});
+                    // L2: z = x
+                    const n6 = builder.addNode({ def: ["z"], use: ["x"] });
+                    // goto L4
+                    const n7 = builder.addNode({});
+                    // L3: w = x
+                    const n8 = builder.addNode({ def: ["w"], use: ["x"] });
+                    // goto L4
+                    const n9 = builder.addNode({});
+                    // L4: result = 0
+                    const n10 = builder.addNode({ def: ["result"] });
 
                     builder.addEdges(builder.entryId, n1);
                     builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n5, n3);
-                    builder.addEdges(n3, n4, n6);
-                    builder.addEdges(n4, n7);
-                    builder.addEdges(n5, n7);
-                    builder.addEdges(n6, n7);
-                    builder.addEdges(n7, builder.exitId);
-
-                    const testCFG = builder.build();
-
-                    const expectedIn = new Map([
-                        [0, new Set([])],
-                        [1, new Set([])],
-                        [2, new Set(['x'])],
-                        [3, new Set(['x'])],
-                        [4, new Set(['x'])],
-                        [5, new Set(['x'])],
-                        [6, new Set(['x'])],
-                        [7, new Set(['x'])],
-                        [-1, new Set([])]
-                    ]);
-
-                    const expectedOut = new Map([
-                        [0, new Set([])],
-                        [1, new Set(['x'])],
-                        [2, new Set(['x'])],
-                        [3, new Set(['x'])],
-                        [4, new Set(['x'])],
-                        [5, new Set(['x'])],
-                        [6, new Set(['x'])],
-                        [7, new Set([])],
-                        [-1, new Set([])]
-                    ]);
-
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
-                });
-
-
-                test("three-way branches - def in left branch, use after join", () => {
-                    const builder = new LivenessInputBuilder();
-
-                    // if (1 < 2) goto L1
-                    const n1 = builder.addNode({});
-                    // if (2 < 3) goto L2
-                    const n2 = builder.addNode({});
-                    // goto L3 (middle)
-                    const n3 = builder.addNode({});
-                    // L1: x = 10
-                    const n4 = builder.addNode({def: ['x']});
-                    // goto L4
-                    const n5 = builder.addNode({});
-                    // L2:
-                    const n6 = builder.addNode({});
-                    // L3:
-                    const n7 = builder.addNode({});
-                    // L4: result = x
-                    const n8 = builder.addNode({def: ['result'], use: ['x']});
-
-                    builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n4, n2);
-                    builder.addEdges(n2, n7, n6);
-                    builder.addEdges(n3, n7); // not used but for symmetry
+                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n3, n6, n8);
                     builder.addEdges(n4, n5);
-                    builder.addEdges(n5, n8);
-                    builder.addEdges(n6, n8);
-                    builder.addEdges(n7, n8);
-                    builder.addEdges(n8, builder.exitId);
-
-                    const testCFG = builder.build();
-
-                    const expectedIn = new Map([
-                        [0, new Set(['x'])],
-                        [1, new Set(['x'])],
-                        [2, new Set(['x'])],
-                        [3, new Set(['x'])],
-                        [4, new Set([])],
-                        [5, new Set(['x'])],
-                        [6, new Set(['x'])],
-                        [7, new Set(['x'])],
-                        [8, new Set(['x'])],
-                        [-1, new Set([])]
-                    ]);
-
-                    const expectedOut = new Map([
-                        [0, new Set(['x'])],
-                        [1, new Set(['x'])],
-                        [2, new Set(['x'])],
-                        [3, new Set(['x'])],
-                        [4, new Set(['x'])],
-                        [5, new Set(['x'])],
-                        [6, new Set(['x'])],
-                        [7, new Set(['x'])],
-                        [8, new Set([])],
-                        [-1, new Set([])]
-                    ]);
-
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
-                });
-                test("three-way branches - defs in all three branches, merge at join", () => {
-                    const builder = new LivenessInputBuilder();
-
-                    // if (1 < 2) goto L1
-                    const n1 = builder.addNode({});
-                    // if (2 < 3) goto L2
-                    const n2 = builder.addNode({});
-                    // goto L3 (middle)
-                    const n3 = builder.addNode({});
-                    // L1: x = 10
-                    const n4 = builder.addNode({def: ['x']});
-                    // goto L4
-                    const n5 = builder.addNode({});
-                    // L2: x = 20
-                    const n6 = builder.addNode({def: ['x']});
-                    // goto L4
-                    const n7 = builder.addNode({});
-                    // L3: x = 30
-                    const n8 = builder.addNode({def: ['x']});
-                    // goto L4
-                    const n9 = builder.addNode({});
-                    // L4: result = x
-                    const n10 = builder.addNode({def: ['result'], use: ['x']});
-
-                    builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n4, n2);
-                    builder.addEdges(n2, n8, n6);
-                    builder.addEdges(n3, n8);
-                    builder.addEdges(n4, n5);
-                    builder.addEdges(n6, n7);
-                    builder.addEdges(n8, n9);
                     builder.addEdges(n5, n10);
+                    builder.addEdges(n6, n7);
                     builder.addEdges(n7, n10);
+                    builder.addEdges(n8, n9);
                     builder.addEdges(n9, n10);
                     builder.addEdges(n10, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
                     const expectedIn = new Map([
-                        [0, new Set([])],
-                        [1, new Set([])],
-                        [2, new Set([])],
-                        [3, new Set([])],
-                        [4, new Set([])],
-                        [5, new Set(['x'])],
-                        [6, new Set([])],
-                        [7, new Set(['x'])],
-                        [8, new Set([])],
-                        [9, new Set(['x'])],
-                        [10, new Set(['x'])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set([])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set([])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set([])],
-                        [1, new Set([])],
-                        [2, new Set([])],
-                        [3, new Set([])],
-                        [4, new Set(['x'])],
-                        [5, new Set(['x'])],
-                        [6, new Set(['x'])],
-                        [7, new Set(['x'])],
-                        [8, new Set(['x'])],
-                        [9, new Set(['x'])],
-                        [10, new Set([])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set([])],
+                        [n5, new Set([])],
+                        [n6, new Set([])],
+                        [n7, new Set([])],
+                        [n8, new Set([])],
+                        [n9, new Set([])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
+                test("three_branches, variable defined in only one arm and used after the join", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if (1 < 2) goto L1
+                    const n1 = builder.addNode({});
+                    // if (2 < 3) goto L2
+                    const n2 = builder.addNode({});
+                    // goto L3
+                    const n3 = builder.addNode({});
+                    // L1: x = 10
+                    const n4 = builder.addNode({ def: ["x"] });
+                    // goto L4
+                    const n5 = builder.addNode({});
+                    // L2: y = 20
+                    const n6 = builder.addNode({ def: ["y"] });
+                    // goto L4
+                    const n7 = builder.addNode({});
+                    // L3: z = 30
+                    const n8 = builder.addNode({ def: ["z"] });
+                    // goto L4
+                    const n9 = builder.addNode({});
+                    // L4: result = x
+                    const n10 = builder.addNode({ def: ["result"], use: ["x"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n4, n2);
+                    builder.addEdges(n2, n6, n3);
+                    builder.addEdges(n3, n8);
+                    builder.addEdges(n4, n5);
+                    builder.addEdges(n5, n10);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n10);
+                    builder.addEdges(n8, n9);
+                    builder.addEdges(n9, n10);
+                    builder.addEdges(n10, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set([])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+                test("three_branches, variable defined in two arms and used after the join", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if (1 < 2) goto L1
+                    const n1 = builder.addNode({});
+                    // if (2 < 3) goto L2
+                    const n2 = builder.addNode({});
+                    // goto L3
+                    const n3 = builder.addNode({});
+                    // L1: x = 10
+                    const n4 = builder.addNode({ def: ["x"] });
+                    // goto L4
+                    const n5 = builder.addNode({});
+                    // L2: x = 20
+                    const n6 = builder.addNode({ def: ["x"] });
+                    // goto L4
+                    const n7 = builder.addNode({});
+                    // L3: y = 30
+                    const n8 = builder.addNode({ def: ["y"] });
+                    // goto L4
+                    const n9 = builder.addNode({});
+                    // L4: result = x
+                    const n10 = builder.addNode({ def: ["result"], use: ["x"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n4, n2);
+                    builder.addEdges(n2, n6, n3);
+                    builder.addEdges(n3, n8);
+                    builder.addEdges(n4, n5);
+                    builder.addEdges(n5, n10);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n10);
+                    builder.addEdges(n8, n9);
+                    builder.addEdges(n9, n10);
+                    builder.addEdges(n10, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set([])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set([])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+
 
             });
 
 
             // 3. Simple Loop
             describe("Simple Loop", () => {
-                test("loop - def before loop, use after loop", () => {
+                test("single_loop, variable defined before the loop and used inside the loop", () => {
                     const builder = new LivenessInputBuilder();
 
-                    // x = 5
-                    const n1 = builder.addNode({def: ['x']});
-                    // L1: if (x < 10) goto L2
-                    const n2 = builder.addNode({use: ['x']});
-                    // goto L3
+                    // x = 10
+                    const n1 = builder.addNode({ def: ["x"] });
+                    // if (1 < 2) goto Lloop
+                    const n2 = builder.addNode({});
+                    // goto Lexit
                     const n3 = builder.addNode({});
-                    // L2: x = x + 1
-                    const n4 = builder.addNode({def: ['x'], use: ['x']});
-                    // goto L1
+                    // Lloop: y = x
+                    const n4 = builder.addNode({ def: ["y"], use: ["x"] });
+                    // goto Lcond
                     const n5 = builder.addNode({});
-                    // L3: result = x
-                    const n6 = builder.addNode({def: ['result'], use: ['x']});
+                    // Lexit: result = 0
+                    const n6 = builder.addNode({ def: ["result"] });
 
                     builder.addEdges(builder.entryId, n1);
                     builder.addEdges(n1, n2);
                     builder.addEdges(n2, n4, n3);
-                    builder.addEdges(n4, n5);
-                    builder.addEdges(n5, n2); // loop back edge
                     builder.addEdges(n3, n6);
+                    builder.addEdges(n4, n5);
+                    builder.addEdges(n5, n2);
                     builder.addEdges(n6, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
                     const expectedIn = new Map([
-                        [0, new Set([])],
-                        [1, new Set([])],
-                        [2, new Set(['x'])],
-                        [3, new Set(['x'])],
-                        [4, new Set(['x'])],
-                        [5, new Set(['x'])],
-                        [6, new Set(['x'])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set([])],
-                        [1, new Set(['x'])],
-                        [2, new Set(['x'])],
-                        [3, new Set(['x'])],
-                        [4, new Set(['x'])],
-                        [5, new Set(['x'])],
-                        [6, new Set([])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
-
-
-                test("loop - def inside loop, use after loop", () => {
+                test("single_loop, variable defined in the loop body and used at the loop header for the next iteration", () => {
                     const builder = new LivenessInputBuilder();
 
-                    // L1: if (1 < 2) goto L2
-                    const n1 = builder.addNode({});
-                    // goto L3
+                    // Lcond: if x < 10 goto Lbody
+                    const n1 = builder.addNode({ use: ["x"] });
+                    // goto Lexit
                     const n2 = builder.addNode({});
-                    // L2: x = 10
-                    const n3 = builder.addNode({def: ['x']});
-                    // goto L1
+                    // Lbody: x = x + 1
+                    const n3 = builder.addNode({ def: ["x"], use: ["x"] });
+                    // goto Lcond
                     const n4 = builder.addNode({});
-                    // L3: result = x
-                    const n5 = builder.addNode({def: ['result'], use: ['x']});
+                    // Lexit: result = 0
+                    const n5 = builder.addNode({ def: ["result"] });
 
                     builder.addEdges(builder.entryId, n1);
                     builder.addEdges(n1, n3, n2);
-                    builder.addEdges(n3, n4);
-                    builder.addEdges(n4, n1); // loop back edge
                     builder.addEdges(n2, n5);
+                    builder.addEdges(n3, n4);
+                    builder.addEdges(n4, n1);
                     builder.addEdges(n5, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
                     const expectedIn = new Map([
-                        [0, new Set(['x'])],
-                        [1, new Set(['x'])],
-                        [2, new Set(['x'])],
-                        [3, new Set([])],
-                        [4, new Set(['x'])],
-                        [5, new Set(['x'])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set([])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set(['x'])],
-                        [1, new Set(['x'])],
-                        [2, new Set(['x'])],
-                        [3, new Set(['x'])],
-                        [4, new Set(['x'])],
-                        [5, new Set([])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set([])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
-
-
-                test("loop - def before loop, used only inside loop", () => {
+                test("single_loop, variable defined in the loop body and used after the loop", () => {
                     const builder = new LivenessInputBuilder();
 
-                    // x = 5
-                    const n1 = builder.addNode({def: ['x']});
-                    // L1: if x < 10 goto L2
-                    const n2 = builder.addNode({use: ['x']});
-                    // goto L3
-                    const n3 = builder.addNode({});
-                    // L2: y = x
-                    const n4 = builder.addNode({def: ['y'], use: ['x']});
-                    // goto L1
-                    const n5 = builder.addNode({});
-                    // L3: result = y
-                    const n6 = builder.addNode({def: ['result'], use: ['y']});
+                    // Lcond: if 1 < 2 goto Lbody
+                    const n1 = builder.addNode({});
+                    // goto Lexit
+                    const n2 = builder.addNode({});
+                    // Lbody: x = 1
+                    const n3 = builder.addNode({ def: ["x"] });
+                    // goto Lcond
+                    const n4 = builder.addNode({});
+                    // Lexit: result = x
+                    const n5 = builder.addNode({ def: ["result"], use: ["x"] });
 
-                    // Build edges
                     builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n4, n3);  // branch inside loop
-                    builder.addEdges(n4, n5);
-                    builder.addEdges(n5, n2);      // back edge
-                    builder.addEdges(n3, n6);
-                    builder.addEdges(n6, builder.exitId);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n5);
+                    builder.addEdges(n3, n4);
+                    builder.addEdges(n4, n1);
+                    builder.addEdges(n5, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
-                    // Corrected expected liveness sets
                     const expectedIn = new Map([
-                        [0, new Set(['y'])],           // entry
-                        [1, new Set(['y'])],        // n1
-                        [2, new Set(['x', 'y'])],    // n2
-                        [3, new Set(['y'])],        // n3
-                        [4, new Set(['x'])],        // n4
-                        [5, new Set(['x', 'y'])],    // n5
-                        [6, new Set(['y'])],        // n6
-                        [-1, new Set([])]           // exit
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set(['y'])],        // entry
-                        [1, new Set(['x', 'y'])],    // n1
-                        [2, new Set(['x', 'y'])],    // n2
-                        [3, new Set(['y'])],        // n3
-                        [4, new Set(['x', 'y'])],    // n4
-                        [5, new Set(['x', 'y'])],    // n5
-                        [6, new Set([])],            // n6
-                        [-1, new Set([])]           // exit
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
-
-
-                test("loop - induction variable live across iterations", () => {
+                test("single_loop, variable defined in the loop body and only used in the loop body", () => {
                     const builder = new LivenessInputBuilder();
 
-                    // i = 0
-                    const n1 = builder.addNode({def: ['i']});
-                    // L1: if (i < 10) goto L2
-                    const n2 = builder.addNode({use: ['i']});
-                    // goto L3
-                    const n3 = builder.addNode({});
-                    // L2: i = i + 1
-                    const n4 = builder.addNode({def: ['i'], use: ['i']});
-                    // goto L1
+                    // Lcond: if 1 < 2 goto Lbody
+                    const n1 = builder.addNode({});
+                    // goto Lexit
+                    const n2 = builder.addNode({});
+                    // Lbody: x = 1
+                    const n3 = builder.addNode({ def: ["x"] });
+                    // Lbody: y = x
+                    const n4 = builder.addNode({ def: ["y"], use: ["x"] });
+                    // goto Lcond
                     const n5 = builder.addNode({});
-                    // L3: result = i
-                    const n6 = builder.addNode({def: ['result'], use: ['i']});
+                    // Lexit: result = 0
+                    const n6 = builder.addNode({ def: ["result"] });
 
                     builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n6);
+                    builder.addEdges(n3, n4);
                     builder.addEdges(n4, n5);
-                    builder.addEdges(n5, n2); // loop back edge
-                    builder.addEdges(n3, n6);
+                    builder.addEdges(n5, n1);
                     builder.addEdges(n6, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
                     const expectedIn = new Map([
-                        [0, new Set([])],
-                        [1, new Set([])],
-                        [2, new Set(['i'])],
-                        [3, new Set(['i'])],
-                        [4, new Set(['i'])],
-                        [5, new Set(['i'])],
-                        [6, new Set(['i'])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set([])],
-                        [1, new Set(['i'])],
-                        [2, new Set(['i'])],
-                        [3, new Set(['i'])],
-                        [4, new Set(['i'])],
-                        [5, new Set(['i'])],
-                        [6, new Set([])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set([])],
+                        [n5, new Set([])],
+                        [n6, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
 
 
@@ -804,214 +863,729 @@ describe("Liveness Analysis", () => {
 
             // 4. Nested Loops
             describe("Nested Loops", () => {
-                test("nested loops - def before outer, used in inner and after", () => {
+                test("loop_within_loop, variable defined before the outer loop and used in the inner loop body", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // x = 42
+                    const n1 = builder.addNode({ def: ["x"] });
+
+                    // if 1 < 2 goto LouterBody
+                    const n2 = builder.addNode({});
+
+                    // goto LafterOuter
+                    const n3 = builder.addNode({});
+
+                    // LouterBody: goto LinnerCond
+                    const n4 = builder.addNode({});
+
+                    // LinnerCond: if 2 < 3 goto LinnerBody
+                    const n5 = builder.addNode({});
+
+                    // goto LafterInner
+                    const n6 = builder.addNode({});
+
+                    // LinnerBody: y = x
+                    const n7 = builder.addNode({ def: ["y"], use: ["x"] });
+
+                    // goto LinnerCond
+                    const n8 = builder.addNode({});
+
+                    // LafterInner: goto LouterCond
+                    const n9 = builder.addNode({});
+
+                    // LafterOuter: result = 0
+                    const n10 = builder.addNode({ def: ["result"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n2);
+                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n3, n10);
+                    builder.addEdges(n4, n5);
+                    builder.addEdges(n5, n7, n6);
+                    builder.addEdges(n6, n9);
+                    builder.addEdges(n7, n8);
+                    builder.addEdges(n8, n5);
+                    builder.addEdges(n9, n2);
+                    builder.addEdges(n10, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+                test("loop_within_loop, variable defined in the inner loop body and used at the inner loop header", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if 1 < 2 goto LouterBody
+                    const n1 = builder.addNode({});
+                    // goto LafterOuter
+                    const n2 = builder.addNode({});
+                    // LouterBody: goto LinnerCond
+                    const n3 = builder.addNode({});
+                    // LinnerCond: if x < 10 goto LinnerBody
+                    const n4 = builder.addNode({ use: ["x"] });
+                    // goto LafterInner
+                    const n5 = builder.addNode({});
+                    // LinnerBody: x = 1
+                    const n6 = builder.addNode({ def: ["x"] });
+                    // goto LinnerCond
+                    const n7 = builder.addNode({});
+                    // LafterInner: goto LouterCond
+                    const n8 = builder.addNode({});
+                    // LafterOuter: result = 0
+                    const n9 = builder.addNode({ def: ["result"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n9);
+                    builder.addEdges(n3, n4);
+                    builder.addEdges(n4, n6, n5);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n4);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n8, n1);
+                    builder.addEdges(n9, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set([])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set([])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set([])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+                test("loop_within_loop, variable defined in the inner loop body and used after the outer loop", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if 1 < 2 goto LouterBody
+                    const n1 = builder.addNode({});
+                    // goto LafterOuter
+                    const n2 = builder.addNode({});
+                    // LouterBody: goto LinnerCond
+                    const n3 = builder.addNode({});
+                    // LinnerCond: if 2 < 3 goto LinnerBody
+                    const n4 = builder.addNode({});
+                    // goto LafterInner
+                    const n5 = builder.addNode({});
+                    // LinnerBody: x = 1
+                    const n6 = builder.addNode({ def: ["x"] });
+                    // goto LinnerCond
+                    const n7 = builder.addNode({});
+                    // LafterInner: goto LouterCond
+                    const n8 = builder.addNode({});
+                    // LafterOuter: result = x
+                    const n9 = builder.addNode({ def: ["result"], use: ["x"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n9);
+                    builder.addEdges(n3, n4);
+                    builder.addEdges(n4, n6, n5);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n4);
+                    builder.addEdges(n8, n1);
+                    builder.addEdges(n9, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set([])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+                test("loop_within_loop, variable defined in the inner loop body and only used in the inner loop body", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if 1 < 2 goto LouterBody
+                    const n1 = builder.addNode({});
+                    // goto LafterOuter
+                    const n2 = builder.addNode({});
+                    // LouterBody: goto LinnerCond
+                    const n3 = builder.addNode({});
+                    // LinnerCond: if 2 < 3 goto LinnerBody
+                    const n4 = builder.addNode({});
+                    // goto LafterInner
+                    const n5 = builder.addNode({});
+                    // LinnerBody: x = 1
+                    const n6 = builder.addNode({ def: ["x"] });
+                    // LinnerBody: y = x
+                    const n7 = builder.addNode({ def: ["y"], use: ["x"] });
+                    // goto LinnerCond
+                    const n8 = builder.addNode({});
+                    // LafterInner: goto LouterCond
+                    const n9 = builder.addNode({});
+                    // LafterOuter: result = 0
+                    const n10 = builder.addNode({ def: ["result"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n10);
+                    builder.addEdges(n3, n4);
+                    builder.addEdges(n4, n6, n5);
+                    builder.addEdges(n5, n9);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n8);
+                    builder.addEdges(n8, n4);
+                    builder.addEdges(n9, n1);
+                    builder.addEdges(n10, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set([])],
+                        [n4, new Set([])],
+                        [n5, new Set([])],
+                        [n6, new Set([])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set([])],
+                        [n9, new Set([])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set([])],
+                        [n3, new Set([])],
+                        [n4, new Set([])],
+                        [n5, new Set([])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set([])],
+                        [n8, new Set([])],
+                        [n9, new Set([])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+
+            });
+
+            // 5
+            describe("Branches in a loop", () => {
+                test("two_branches_in_loop, variable defined before the loop and used in both branches inside the loop", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // x = 10
+                    const n1 = builder.addNode({ def: ["x"] });
+                    // if (1 < 2) goto Lloop
+                    const n2 = builder.addNode({});
+                    // goto Lexit
+                    const n3 = builder.addNode({});
+                    // Lloop: if (2 < 3) goto Lleft
+                    const n4 = builder.addNode({});
+                    // goto Lright
+                    const n5 = builder.addNode({});
+                    // Lleft: y = x
+                    const n6 = builder.addNode({ def: ["y"], use: ["x"] });
+                    // goto Ljoin
+                    const n7 = builder.addNode({});
+                    // Lright: z = x
+                    const n8 = builder.addNode({ def: ["z"], use: ["x"] });
+                    // goto Ljoin
+                    const n9 = builder.addNode({});
+                    // Ljoin: goto Lcond
+                    const n10 = builder.addNode({});
+                    // Lexit: result = 0
+                    const n11 = builder.addNode({ def: ["result"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n2);
+                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n3, n11);
+                    builder.addEdges(n4, n6, n5);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n10);
+                    builder.addEdges(n8, n9);
+                    builder.addEdges(n9, n10);
+                    builder.addEdges(n10, n2);
+                    builder.addEdges(n11, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set(["x"])],
+                        [n11, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set(["x"])],
+                        [n11, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+                test("two_branches_in_loop, variable defined in one branch and used at the loop header", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if 1 < 2 goto Lhdr
+                    const n1 = builder.addNode({});
+                    // Lhdr: if x < 0 goto Lleft
+                    const n2 = builder.addNode({ use: ["x"] });
+                    // goto Lright
+                    const n3 = builder.addNode({});
+                    // Lleft: x = 1
+                    const n4 = builder.addNode({ def: ["x"] });
+                    // goto Ljoin
+                    const n5 = builder.addNode({});
+                    // Lright: y = 0
+                    const n6 = builder.addNode({ def: ["y"] });
+                    // goto Ljoin
+                    const n7 = builder.addNode({});
+                    // Ljoin: goto Lhdr
+                    const n8 = builder.addNode({});
+                    // Lexit: result = 0
+                    const n9 = builder.addNode({ def: ["result"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n2, n9);
+                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n3, n6);
+                    builder.addEdges(n4, n5);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n8);
+                    builder.addEdges(n8, n2);
+                    builder.addEdges(n9, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set([])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+
+                test("two_branches_in_loop, variable defined in one branch and used after the loop", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // x = 10
+                    const n1 = builder.addNode({ def: ["x"] });
+                    // if (1 < 2) goto Lloop
+                    const n2 = builder.addNode({});
+                    // goto Lexit
+                    const n3 = builder.addNode({});
+                    // Lloop: if (2 < 3) goto Lleft
+                    const n4 = builder.addNode({});
+                    // goto Lright
+                    const n5 = builder.addNode({});
+                    // Lleft: x = 10
+                    const n6 = builder.addNode({ def: ["x"] });
+                    // goto Ljoin
+                    const n7 = builder.addNode({});
+                    // Lright: y = 0
+                    const n8 = builder.addNode({ def: ["y"] });
+                    // goto Ljoin
+                    const n9 = builder.addNode({});
+                    // Ljoin: goto Lcond
+                    const n10 = builder.addNode({});
+                    // Lexit: result = x
+                    const n11 = builder.addNode({ def: ["result"], use: ["x"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n2);
+                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n3, n11);
+                    builder.addEdges(n4, n6, n5);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n6, n7);
+                    builder.addEdges(n7, n10);
+                    builder.addEdges(n8, n9);
+                    builder.addEdges(n9, n10);
+                    builder.addEdges(n10, n2);
+                    builder.addEdges(n11, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set([])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set(["x"])],
+                        [n11, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set(["x"])],
+                        [n11, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+
+
+
+            });
+
+
+            // 6
+            describe("Loop in a branch", () => {
+                test("loop_in_branch, variable defined before the branch and used inside the loop of one branch", () => {
                     const builder = new LivenessInputBuilder();
 
                     // x = 5
-                    const n1 = builder.addNode({def: ['x']});
-
-                    // Outer loop start: if x < 10 goto inner loop, else goto after outer
-                    const n2 = builder.addNode({use: ['x']});
-
-                    // Inner loop start: if x < 8 goto inner body, else after inner
-                    const n3 = builder.addNode({use: ['x']});
-
-                    // Inner body: y = x + 1
-                    const n4 = builder.addNode({def: ['y'], use: ['x']});
-
-                    // Back to inner loop start
+                    const n1 = builder.addNode({ def: ["x"] });
+                    // if (1 < 2) goto LloopCond
+                    const n2 = builder.addNode({});
+                    // goto Lother
+                    const n3 = builder.addNode({});
+                    // LloopCond: if (2 < 3) goto LloopBody
+                    const n4 = builder.addNode({});
+                    // goto LafterLoop
                     const n5 = builder.addNode({});
-
-                    // After inner loop
-                    const n6 = builder.addNode({});
-
-                    // Outer loop continuation
+                    // LloopBody: y = x
+                    const n6 = builder.addNode({ def: ["y"], use: ["x"] });
+                    // goto LloopCond
                     const n7 = builder.addNode({});
+                    // LafterLoop: goto Ljoin
+                    const n8 = builder.addNode({});
+                    // Lother: z = 0
+                    const n9 = builder.addNode({ def: ["z"] });
+                    // goto Ljoin
+                    const n10 = builder.addNode({});
+                    // Ljoin: result = 0
+                    const n11 = builder.addNode({ def: ["result"] });
 
-                    // After outer loop: result = x + y
-                    const n8 = builder.addNode({def: ['result'], use: ['x', 'y']});
-
-                    // Build edges
                     builder.addEdges(builder.entryId, n1);
                     builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n3, n8); // outer loop branch
-                    builder.addEdges(n3, n4, n6); // inner loop branch
-                    builder.addEdges(n4, n5);
-                    builder.addEdges(n5, n3);     // inner loop back edge
+                    builder.addEdges(n2, n4, n3);
+                    builder.addEdges(n3, n9);
+                    builder.addEdges(n4, n6, n5);
+                    builder.addEdges(n5, n8);
                     builder.addEdges(n6, n7);
-                    builder.addEdges(n7, n2);     // outer loop back edge
-                    builder.addEdges(n8, builder.exitId);
+                    builder.addEdges(n7, n4);
+                    builder.addEdges(n8, n11);
+                    builder.addEdges(n9, n10);
+                    builder.addEdges(n10, n11);
+                    builder.addEdges(n11, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
-                    // Corrected expected liveness sets
                     const expectedIn = new Map([
-                        [0, new Set(['y'])],           // entry
-                        [1, new Set(['y'])],        // n1
-                        [2, new Set(['x', 'y'])],    // n2
-                        [3, new Set(['x', 'y'])],    // n3
-                        [4, new Set(['x'])],        // n4
-                        [5, new Set(['x', 'y'])],    // n5
-                        [6, new Set(['x', 'y'])],    // n6
-                        [7, new Set(['x', 'y'])],    // n7
-                        [8, new Set(['x', 'y'])],    // n8
-                        [-1, new Set([])]           // exit
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set([])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set([])],
+                        [n9, new Set([])],
+                        [n10, new Set([])],
+                        [n11, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set(['y'])],
-                        [1, new Set(['x', 'y'])],
-                        [2, new Set(['x', 'y'])],
-                        [3, new Set(['x', 'y'])],
-                        [4, new Set(['x', 'y'])],
-                        [5, new Set(['x', 'y'])],
-                        [6, new Set(['x', 'y'])],
-                        [7, new Set(['x', 'y'])],
-                        [8, new Set([])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set([])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set([])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set([])],
+                        [n9, new Set([])],
+                        [n10, new Set([])],
+                        [n11, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
-
-
-                test("nested loops - def inside inner loop only, use after outer", () => {
+                test("loop_in_branch, variable defined inside the loop branch and used after the join", () => {
                     const builder = new LivenessInputBuilder();
 
-                    // Outer loop start
-                    // if 1<2 goto inner
+                    // if 1 < 2 goto LloopCond
                     const n1 = builder.addNode({});
-
-                    // Inner loop start
-                    // if 1<2 goto body
+                    // goto Lother
                     const n2 = builder.addNode({});
-                    // z = 42
-                    const n3 = builder.addNode({def: ['z']});
-                    // goto inner loop start
+                    // LloopCond: if 2 < 3 goto LloopBody
+                    const n3 = builder.addNode({});
+                    // goto LafterLoop
                     const n4 = builder.addNode({});
-
-                    // After inner loop
-                    const n5 = builder.addNode({});
-                    // goto outer loop start
+                    // LloopBody: x = 1
+                    const n5 = builder.addNode({ def: ["x"] });
+                    // goto LloopCond
                     const n6 = builder.addNode({});
+                    // LafterLoop: goto Ljoin
+                    const n7 = builder.addNode({});
+                    // Lother: y = 0
+                    const n8 = builder.addNode({ def: ["y"] });
+                    // goto Ljoin
+                    const n9 = builder.addNode({});
+                    // Ljoin: result = x
+                    const n10 = builder.addNode({ def: ["result"], use: ["x"] });
 
-                    // After outer loop
-                    const n7 = builder.addNode({def: ['result'], use: ['z']});
-
-                    // Build CFG
                     builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n2, n7);
+                    builder.addEdges(n1, n3, n2);
+                    builder.addEdges(n2, n8);
+                    builder.addEdges(n3, n5, n4);
+                    builder.addEdges(n4, n7);
+                    builder.addEdges(n5, n6);
+                    builder.addEdges(n6, n3);
+                    builder.addEdges(n7, n10);
+                    builder.addEdges(n8, n9);
+                    builder.addEdges(n9, n10);
+                    builder.addEdges(n10, builder.exitId);
+
+                    const testInput = builder.build();
+
+                    const expectedIn = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set([])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    const expectedOut = new Map([
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [n9, new Set(["x"])],
+                        [n10, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
+                    ]);
+
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
+                });
+                test("loop_in_branch, variable defined in the other branch and used after the join", () => {
+                    const builder = new LivenessInputBuilder();
+
+                    // if 1 < 2 goto LLoopCond
+                    const n1 = builder.addNode({});
+                    // LLoopCond: if 2 < 3 goto LLoopBody
+                    const n2 = builder.addNode({});
+                    // LLoopBody: y = 0
+                    const n3 = builder.addNode({ def: ["y"] });
+                    // goto LLoopCond
+                    const n4 = builder.addNode({});
+                    // LAfterLoop: goto LJoin
+                    const n5 = builder.addNode({});
+                    // LDefine: x = 10
+                    const n6 = builder.addNode({ def: ["x"] });
+                    // goto LJoin
+                    const n7 = builder.addNode({});
+                    // LJoin: result = x
+                    const n8 = builder.addNode({ def: ["result"], use: ["x"] });
+
+                    builder.addEdges(builder.entryId, n1);
+                    builder.addEdges(n1, n2, n6);
                     builder.addEdges(n2, n3, n5);
                     builder.addEdges(n3, n4);
-                    builder.addEdges(n4, n2);     // inner loop back
-                    builder.addEdges(n5, n6);
-                    builder.addEdges(n6, n1);     // outer loop back
-                    builder.addEdges(n7, builder.exitId);
-
-                    const testCFG = builder.build();
-
-                    // Computed liveIn/liveOut
-                    const expectedIn = new Map([
-                        [0, new Set(['z'])],
-                        [1, new Set(['z'])],
-                        [2, new Set(['z'])],
-                        [3, new Set([])],
-                        [4, new Set(['z'])],
-                        [5, new Set(['z'])],
-                        [6, new Set(['z'])],
-                        [7, new Set(['z'])],
-                        [-1, new Set([])]
-                    ]);
-
-                    const expectedOut = new Map([
-                        [0, new Set(['z'])],
-                        [1, new Set(['z'])],
-                        [2, new Set(['z'])],
-                        [3, new Set(['z'])],
-                        [4, new Set(['z'])],
-                        [5, new Set(['z'])],
-                        [6, new Set(['z'])],
-                        [7, new Set([])],
-                        [-1, new Set([])]
-                    ]);
-
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
-                });
-
-                test("nested loops - induction variables outer and inner", () => {
-                    const builder = new LivenessInputBuilder();
-
-                    // i = 0 (outer loop induction variable)
-                    const n1 = builder.addNode({def: ['i']});
-                    // outer loop start: if i<10 goto inner loop else after outer
-                    const n2 = builder.addNode({use: ['i']});
-
-                    // j = 0 (inner loop induction variable)
-                    const n3 = builder.addNode({def: ['j']});
-                    // if j<5 goto inner body else after inner
-                    const n4 = builder.addNode({use: ['j']});
-                    // j = j + 1
-                    const n5 = builder.addNode({def: ['j'], use: ['j']});
-                    // goto inner loop start
-                    const n6 = builder.addNode({});
-
-                    // outer loop increment i
-                    const n7 = builder.addNode({def: ['i'], use: ['i']});
-                    // goto outer loop start
-                    const n8 = builder.addNode({});
-
-                    // after outer loop
-                    const n9 = builder.addNode({def: ['result'], use: ['i', 'j']});
-
-                    // Build CFG edges
-                    builder.addEdges(builder.entryId, n1);
-                    builder.addEdges(n1, n2);
-                    builder.addEdges(n2, n3, n9); // outer loop branch
-                    builder.addEdges(n3, n4);
-                    builder.addEdges(n4, n5, n7); // inner loop branch
-                    builder.addEdges(n5, n6);
-                    builder.addEdges(n6, n4);      // inner loop back
+                    builder.addEdges(n4, n2);
+                    builder.addEdges(n5, n8);
+                    builder.addEdges(n6, n7);
                     builder.addEdges(n7, n8);
-                    builder.addEdges(n8, n2);      // outer loop back
-                    builder.addEdges(n9, builder.exitId);
+                    builder.addEdges(n8, builder.exitId);
 
-                    const testCFG = builder.build();
+                    const testInput = builder.build();
 
-                    // Corrected expected liveness sets
                     const expectedIn = new Map([
-                        [0, new Set(['j'])],        // entry
-                        [1, new Set(['j'])],        // n1
-                        [2, new Set(['i', 'j'])],    // n2
-                        [3, new Set(['i'])],        // n3
-                        [4, new Set(['i', 'j'])],    // n4
-                        [5, new Set(['i', 'j'])],    // n5
-                        [6, new Set(['i', 'j'])],    // n6
-                        [7, new Set(['i', 'j'])],    // n7
-                        [8, new Set(['i', 'j'])],    // n8
-                        [9, new Set(['i', 'j'])],    // n9
-                        [-1, new Set([])]           // exit
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set([])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set(["x"])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
                     const expectedOut = new Map([
-                        [0, new Set(['j'])],
-                        [1, new Set(['i', 'j'])],
-                        [2, new Set(['i', 'j'])],
-                        [3, new Set(['i', 'j'])],
-                        [4, new Set(['i', 'j'])],
-                        [5, new Set(['i', 'j'])],
-                        [6, new Set(['i', 'j'])],
-                        [7, new Set(['i', 'j'])],
-                        [8, new Set(['i', 'j'])],
-                        [9, new Set([])],
-                        [-1, new Set([])]
+                        [testInput.cfg.entryId, new Set(["x"])],
+                        [n1, new Set(["x"])],
+                        [n2, new Set(["x"])],
+                        [n3, new Set(["x"])],
+                        [n4, new Set(["x"])],
+                        [n5, new Set(["x"])],
+                        [n6, new Set(["x"])],
+                        [n7, new Set(["x"])],
+                        [n8, new Set([])],
+                        [testInput.cfg.exitId, new Set([])],
                     ]);
 
-                    expectLivenessInEquals(testCFG, expectedIn, new Set([]));
-                    expectLivenessOutEquals(testCFG, expectedOut, new Set([]));
+                    expectLivenessInEquals(testInput, expectedIn, new Set([]));
+                    expectLivenessOutEquals(testInput, expectedOut, new Set([]));
                 });
-
 
             });
         });

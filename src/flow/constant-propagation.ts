@@ -8,7 +8,7 @@ import {produce} from "immer";
 import type {YieldReason} from "./common.ts";
 import {type ControlFlowGraph, getTopologicalOrder} from "../cfg/graph.ts";
 
-type Definition = {
+export type Definition = {
     kind: 'copy',
     target: string,
     use1: Variable | NumberConstant,
@@ -20,14 +20,14 @@ type Definition = {
 } | {
     kind: 'binary',
     target: string,
-    op: PropagationBinaryOperator,
+    op: PropagationBinaryArithmeticOperator,
     use1: Variable | NumberConstant,
     use2: Variable | NumberConstant,
 };
 
-type PropagationBinaryOperator = '+' | '-' | '*' | '/' | '%' | '==' | '<=' | '>=' | '!=' | '>' | '<';
+export type PropagationBinaryArithmeticOperator = '+' | '-' | '*' | '/' | '%';
 
-type PropagationUnaryOperator = '-' | '!';
+export type PropagationUnaryOperator = '-';
 
 type Variable = {
     kind: 'variable',
@@ -62,8 +62,8 @@ function unaryOperatorFrom(operator: UnaryOperator): PropagationUnaryOperator {
     return operator as PropagationUnaryOperator;
 }
 
-function binaryArithmeticOperatorFrom(operator: BinaryArithmaticOperator): PropagationBinaryOperator {
-    return operator as PropagationBinaryOperator;
+function binaryArithmeticOperatorFrom(operator: BinaryArithmaticOperator): PropagationBinaryArithmeticOperator {
+    return operator as PropagationBinaryArithmeticOperator;
 }
 
 
@@ -158,7 +158,7 @@ export function* ConstantPropagation(input: ConstantPropagationInput) {
                     });
                     const changesAtEachInstruction = new Map<string, PropagationValue>([...newIn.entries()]);
                     currentDefinitions?.forEach(definition => {
-                        changesAtEachInstruction.set(definition.target, meetInstruction(changesAtEachInstruction, definition));
+                        changesAtEachInstruction.set(definition.target, latticeOperator(changesAtEachInstruction, definition));
                     })
                     changesAtEachInstruction.forEach((value, variable) => {
                         newMap.set(variable, value);
@@ -189,7 +189,7 @@ function convertToConstantPropagationState(currentNodeId: number | undefined, re
 
 function extractDataFromStore(store: InOutMapStore, nodeId: number): InOutMapData {
     const innerMap = store.getValueRaw(nodeId)!;
-    const copy = new Map([...innerMap].map(([key, value]) => [key, (value.kind === 'constant-number' ? value.value : value.kind)  as string]));
+    const copy = new Map([...innerMap].map(([key, value]) => [key, (value.kind === 'constant-number' ? `${value.value}` : value.kind)]));
     return {data: copy, changed: store.hasChanged(nodeId), lookedAt: store.wasLookedAt(nodeId)};
 }
 
@@ -218,8 +218,6 @@ function applyUnaryOp(value: number, op: PropagationUnaryOperator): number {
     switch (op) {
         case "-":
             return -value;
-        case '!':
-            return ~value;
         default: {
             const exhaustiveCheck: never = op;
             throw new Error(`Unknown operator: ${exhaustiveCheck}`);
@@ -227,7 +225,7 @@ function applyUnaryOp(value: number, op: PropagationUnaryOperator): number {
     }
 }
 
-function applyBinaryOp(value1: number, value2: number, op: PropagationBinaryOperator): number {
+function applyBinaryOp(value1: number, value2: number, op: PropagationBinaryArithmeticOperator): number {
     switch (op) {
         case "-":
             return value1 - value2;
@@ -239,24 +237,6 @@ function applyBinaryOp(value1: number, value2: number, op: PropagationBinaryOper
             return Math.floor(value1 / value2);
         case '%':
             return value1 % value2;
-        case "==":
-            if (value1 === value2) return 0;
-            return -1;
-        case "<=":
-            if (value1 <= value2) return 0;
-            return -1;
-        case ">=":
-            if (value1 >= value2) return 0;
-            return -1;
-        case ">":
-            if (value1 > value2) return 0;
-            return -1;
-        case "!=":
-            if (value1 !== value2) return 0;
-            return -1;
-        case "<":
-            if (value1 < value2) return 0;
-            return -1;
         default: {
             const exhaustiveCheck: never = op;
             throw new Error(`Unknown operator: ${exhaustiveCheck}`);
@@ -264,31 +244,29 @@ function applyBinaryOp(value1: number, value2: number, op: PropagationBinaryOper
     }
 }
 
-function meetInstruction(inMap: Map<string, PropagationValue>, def: Definition): PropagationValue {
-    const target = def.target;
-    const targetCurrentValue = inMap.get(target) ?? {'kind': 'UNDEF'};
+function latticeOperator(inMap: Map<string, PropagationValue>, def: Definition): PropagationValue {
     switch (def.kind) {
         case "copy":
             if (def.use1.kind === 'constant') {
-                return meetOperator(targetCurrentValue, {kind: 'constant-number', value: def.use1.value});
+                return {kind: 'constant-number', value: def.use1.value};
             } else {
-                return meetOperator(targetCurrentValue, inMap.get(def.use1.value) ?? {kind: 'UNDEF'});
+                return inMap.get(def.use1.value) ?? {kind: 'UNDEF'};
             }
         case 'unary':
             if (def.use1.kind === 'constant') {
-                return meetOperator(targetCurrentValue, {
+                return {
                     kind: 'constant-number',
                     value: applyUnaryOp(def.use1.value, def.op)
-                });
+                };
             } else {
-                let newPropagationValue = inMap.get(def.use1.value) ?? {kind: 'UNDEF'};
+                let newPropagationValue = (inMap.get(def.use1.value) ?? {kind: 'UNDEF'});
                 if (newPropagationValue.kind === 'constant-number') {
                     newPropagationValue = {
                         ...newPropagationValue,
                         value: applyUnaryOp(newPropagationValue.value, def.op)
                     };
                 }
-                return meetOperator(targetCurrentValue, newPropagationValue);
+                return newPropagationValue;
             }
         case 'binary': {
             let propValue1: PropagationValue | undefined;
@@ -304,13 +282,13 @@ function meetInstruction(inMap: Map<string, PropagationValue>, def: Definition):
                 propValue2 = inMap.get(def.use2.value) ?? {kind: 'UNDEF'};
             }
             if (propValue1.kind === 'constant-number' && propValue2.kind === 'constant-number') {
-                return meetOperator(targetCurrentValue, {
+                return {
                     kind: 'constant-number',
                     value: applyBinaryOp(propValue1.value, propValue2.value, def.op)
-                });
+                };
             }
-            if (propValue1.kind === 'NAC' || propValue2.kind === 'NAC') return meetOperator(targetCurrentValue, {kind: 'NAC'});
-            return meetOperator(targetCurrentValue, {kind: 'UNDEF'});
+            if (propValue1.kind === 'NAC' || propValue2.kind === 'NAC') return {kind: 'NAC'};
+            return {kind: 'UNDEF'};
         }
     }
 }
