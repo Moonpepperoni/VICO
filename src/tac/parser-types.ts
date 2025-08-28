@@ -158,7 +158,7 @@ export class UnaryAssignInstruction extends BaseInstruction {
     }
 
     toString(): string {
-        return (this.label ? `${this.label}: ` : '') + `${this.target.val} = ${this.operator} ${this.operand}`;
+        return (this.label ? `${this.label}: ` : '') + `${this.target.val} = ${this.operator} ${this.operand.val}`;
     }
 }
 
