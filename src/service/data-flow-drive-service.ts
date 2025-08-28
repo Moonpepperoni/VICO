@@ -128,6 +128,12 @@ export class DataFlowDriveService {
         this.engine = undefined;
     }
 
+    getPossibleVariables() : Set<string> {
+        if (this.currentProgram === undefined) return new Set();
+        if (this.currentProgram.validity === 'invalid') return new Set();
+        return this.currentProgram.tacProgram.usedVariables
+    }
+
     trySetNewProgram(programText: string) {
         // reset the engine if it is currently running
         this.engine = undefined;
@@ -168,6 +174,12 @@ export class DataFlowDriveService {
         while (this.engine?.hasNext()) {
             this.engine?.stepForward();
         }
+    }
+
+    canSelectAlgorithm(): boolean {
+        if (this.currentProgram === undefined) return false;
+        if (this.currentProgram.programText === '') return false;
+        return this.currentProgram.validity === 'valid';
     }
 
     currentStepValue(): FlowState | undefined {

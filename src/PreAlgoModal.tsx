@@ -100,6 +100,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
     })();
 
     return <Modal
+        data-cy="pre-algo-modal"
         show={selectedAlgorithm !== null}
         onHide={handleClose}
         backdrop="static"
@@ -126,7 +127,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
                 <Form>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
                         <Form.Label>Live-Out Variablen auswählen:</Form.Label>
-                        <Form.Check key="all" type="checkbox" label="Alle Variablen"
+                        <Form.Check data-cy="pre-algo-modal-check-all-live-out" key="all" type="checkbox" label="Alle Variablen"
                                     checked={selectedVariables.size === possibleVariables.size}
                                     onChange={handleAllClicked}/>
                         {[...possibleVariables].map((variable) => {
@@ -154,7 +155,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
             <Button variant="secondary" onClick={handleClose}>
                 Zurück
             </Button>
-            <Button variant="success" onClick={onStart}>Starten</Button>
+            <Button data-cy="pre-algo-modal-start-button" variant="success" onClick={onStart}>Starten</Button>
         </Modal.Footer>
     </Modal>
 };

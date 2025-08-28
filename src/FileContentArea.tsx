@@ -60,6 +60,7 @@ export const FileContentArea: React.FC<FileContentAreaProps> = ({
                 </Col>
                 <Col xs={6} className="text-end">
                     <Button
+                        data-cy='code-editor-save-button'
                         disabled={!isModified}
                         variant="primary"
                         onClick={handleSave}
@@ -81,6 +82,7 @@ export const FileContentArea: React.FC<FileContentAreaProps> = ({
                     marginBottom: '10px'
                 }}>
                     <CodeMirror
+                        data-cy="code-editor-area"
                         value={fileContent}
                         height="100%"
                         basicSetup={{

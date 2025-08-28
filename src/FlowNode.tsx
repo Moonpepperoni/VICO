@@ -32,10 +32,10 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
     }]);
 
     return (
-        <Card className={"shadow-sm" + (data.isCurrent ? " border-4 border-dark-subtle" : "")}>
+        <Card data-cy="flow-node" className={"shadow-sm" + (data.isCurrent ? " border-4 border-dark-subtle" : "")}>
             <Handle type="target" position={Position.Top} style={{visibility: 'hidden'}}/>
 
-            <Card.Header className={"bg-light"}>
+            <Card.Header data-cy="flow-node-in-set" className={"bg-light"}>
                 <small className="text-muted">in: </small>
                 <Badge bg={inValue.changed ? 'info' : "secondary"} className="py-1">{inRep || "∅"}</Badge> {' '}
                 <Badge bg="warning" className="py-1" style={{visibility: inValue.lookedAt ? 'visible' : 'hidden'}}>
@@ -71,7 +71,9 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
                             ))}
                         </div>
                         {perNodeValues && perNodeValues?.size > 0 &&
-                            <div style={{
+                            <div
+                                data-cy="flow-node-algo-specific-values"
+                                style={{
                                 flex: '5 0 0%',
                                 paddingLeft: '1rem',
                                 borderLeft: '1px solid #dee2e6'
@@ -97,7 +99,7 @@ export default function FlowNode({data}: NodeProps<FlowNode>) {
                     </div>
                 </Card.Body>
             }
-            <Card.Footer className={"bg-light"}>
+            <Card.Footer data-cy="flow-node-out-set" className={"bg-light"}>
                 <small className="text-muted">out:</small> {' '}
                 <Badge bg={outValue.changed ? 'info' : "secondary"} className="py-1">{outRep || "∅"}</Badge> {' '}
                 <Badge bg="warning" className="py-1" style={{visibility: outValue.lookedAt ? 'visible' : 'hidden'}}>

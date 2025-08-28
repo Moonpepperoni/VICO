@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Alert, Stack, Container } from 'react-bootstrap';
+import {Alert, Button, Container, Stack} from 'react-bootstrap';
 import type {FlowAlgorithmSelector} from "./service/data-flow-drive-service.ts";
 
 interface AlgorithmMenuProps {
@@ -7,6 +7,7 @@ interface AlgorithmMenuProps {
     onToggle: () => void;
     onBackToWelcome: () => void;
     selectedAlgorithm: string | null;
+    canSelectAlgorithm: boolean;
     onAlgorithmSelect: (algorithm: FlowAlgorithmSelector["kind"]) => void;
 }
 
@@ -15,10 +16,11 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
                                                                 onToggle,
                                                                 onBackToWelcome,
                                                                 selectedAlgorithm,
-                                                                onAlgorithmSelect
+                                                                onAlgorithmSelect,
+                                                                canSelectAlgorithm,
                                                             }) => {
 
-    const flowAlgorithms : Array<{id: FlowAlgorithmSelector["kind"], name: string}> = [
+    const flowAlgorithms: Array<{ id: FlowAlgorithmSelector["kind"], name: string }> = [
         {id: 'liveness-basic-blocks', name: 'Liveness (Basic Blocks)'},
         {id: 'liveness-single-instruction', name: "Liveness (Single Instructions)"},
         {id: 'reaching-definitions-basic-blocks', name: 'Reaching Definitions (Basic Blocks)'},
@@ -29,6 +31,7 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
         <>
             {/* Toggle Button - Always visible */}
             <div
+                data-cy='algo-menu-toggle'
                 className="position-fixed bg-primary text-white d-flex align-items-center justify-content-center"
                 style={{
                     top: '60px',
@@ -48,6 +51,7 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
 
             {/* Menu Panel */}
             <div
+                data-cy="algo-menu-panel"
                 className={`bg-light border-end position-relative ${isVisible ? '' : 'd-none'}`}
                 style={{
                     width: '280px',
@@ -58,6 +62,7 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
                 <Container className="p-3 h-100 d-flex flex-column">
                     {/* Back Button */}
                     <Button
+                        data-cy="algo-menu-back-button"
                         variant="outline-secondary"
                         className="mb-4 w-100"
                         onClick={onBackToWelcome}
@@ -68,13 +73,15 @@ export const AlgorithmMenu: React.FC<AlgorithmMenuProps> = ({
                     {/* Algorithm Selection */}
                     <div className="mb-4">
                         <h5 className="text-muted mb-3">Flowalgorithmen:</h5>
-                        <Stack gap={2}>
+                        <Stack data-cy="algo-menu-flow-button-group" gap={2}>
                             {flowAlgorithms.map((algorithm) => (
                                 <Button
+                                    data-cy={"algo-menu-select-" + algorithm.id}
                                     key={algorithm.id}
                                     variant={selectedAlgorithm === algorithm.id ? 'primary' : 'outline-primary'}
                                     className="text-start"
                                     onClick={() => onAlgorithmSelect(algorithm.id)}
+                                    disabled={!canSelectAlgorithm}
                                 >
                                     {algorithm.name}
                                 </Button>

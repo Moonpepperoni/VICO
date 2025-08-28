@@ -182,11 +182,11 @@ describe('SingleInstructionGraph', () => {
         const tacProgram = TacProgram.fromParsedInstructions(tac);
         const cfg = new SingleInstructionGraph(tacProgram);
 
-        const firstInstructions = cfg.getNodeInstructions(0);
+        const firstInstructions = [...cfg.getNodeInstructions(0).values()];
         expect(firstInstructions).toHaveLength(1);
         expect(firstInstructions[0].kind).toBe('copy');
 
-        const secondInstructions = cfg.getNodeInstructions(1);
+        const secondInstructions = [...cfg.getNodeInstructions(1).values()];
         expect(secondInstructions).toHaveLength(1);
         expect(secondInstructions[0].kind).toBe('copy');
     });
