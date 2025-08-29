@@ -338,7 +338,1363 @@ describe('ReachingDefinitions Algo Test', () => {
             expectInEquals(algoInput, finalInMaps);
             expectOutEquals(algoInput, finalOutMaps);
         });
+
+        it('two_branches: variable assigned different constants in the two branches so the join becomes non-constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // x = 0
+            // if x > 0 goto LABEL1
+            // goto LABEL2
+            const n1 = inputBuilder.addNode({definitions: [d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // LABEL1: a = 5
+            // goto LABEL3
+            const n2 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5))]});
+
+            // basic block 3:
+            // LABEL2: a = 7
+            // goto LABEL3
+            const n3 = inputBuilder.addNode({definitions: [d.copy('a', u.c(7))]});
+
+            // basic block 4:
+            // LABEL3: c = a + 1
+            // result = - a
+            const n4 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2); // branch to LABEL1
+            inputBuilder.addEdges(n1, n3); // branch to LABEL2
+            inputBuilder.addEdges(n2, n4); // goto LABEL3
+            inputBuilder.addEdges(n3, n4); // goto LABEL3
+            inputBuilder.addEdges(n4, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['x', '0']])],
+                [n3, new Map([['x', '0']])],
+                [n4, new Map([['x', '0'], ['a', 'NAC']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['a', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['x', '0']])],
+                [n2, new Map([['x', '0'], ['a', '5']])],
+                [n3, new Map([['x', '0'], ['a', '7']])],
+                [n4, new Map([['x', '0'], ['a', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['a', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
+        it('two_branches: variable constant before split, one branch assigns UNDEF expression; join keeps the constant (ignore UNDEF)', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 10
+            // x = 0
+            // if x > 0 goto LABEL1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(10)), d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // LABEL1: a = k + 1
+            // goto LABEL3
+            const n2 = inputBuilder.addNode({definitions: [d.binary('a', '+', u.v('k'), u.c(1))]});
+
+            // basic block 3:
+            // LABEL2: a = 10
+            // goto LABEL3
+            const n3 = inputBuilder.addNode({definitions: [d.copy('a', u.c(10))]});
+
+            // basic block 4:
+            // LABEL3: c = a + 2
+            // result = - a
+            const n4 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(2)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2); // true branch to LABEL1
+            inputBuilder.addEdges(n1, n3); // false branch (fallthrough) to LABEL2
+            inputBuilder.addEdges(n2, n4); // goto LABEL3
+            inputBuilder.addEdges(n3, n4); // goto LABEL3
+            inputBuilder.addEdges(n4, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '10'], ['x', '0']])],
+                [n3, new Map([['a', '10'], ['x', '0']])],
+                [n4, new Map([['a', '10'], ['x', '0']])],
+                [inputBuilder.exitId, new Map([['a', '10'], ['x', '0'], ['c', '12'], ['result', '-10']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '10'], ['x', '0']])],
+                [n2, new Map([['a', 'UNDEF'], ['x', '0']])],
+                [n3, new Map([['a', '10'], ['x', '0']])],
+                [n4, new Map([['a', '10'], ['x', '0'], ['c', '12'], ['result', '-10']])],
+                [inputBuilder.exitId, new Map([['a', '10'], ['x', '0'], ['c', '12'], ['result', '-10']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('two_branches: variable constant before split, untouched in both branches so join preserves original constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 7
+            // x = 1
+            // if x > 0 goto LABEL1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(7)), d.copy('x', u.c(1))]});
+
+            // basic block 2:
+            // LABEL1: x = x
+            // goto LABEL3
+            const n2 = inputBuilder.addNode({definitions: [d.copy('x', u.v('x'))]});
+
+            // basic block 3:
+            // LABEL2: x = x
+            // goto LABEL3
+            const n3 = inputBuilder.addNode({definitions: [d.copy('x', u.v('x'))]});
+
+            // basic block 4:
+            // LABEL3: c = a + 2
+            // result = - a
+            const n4 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(2)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2); // true branch to LABEL1
+            inputBuilder.addEdges(n1, n3); // false branch to LABEL2
+            inputBuilder.addEdges(n2, n4); // goto LABEL3
+            inputBuilder.addEdges(n3, n4); // goto LABEL3
+            inputBuilder.addEdges(n4, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '7'], ['x', '1']])],
+                [n3, new Map([['a', '7'], ['x', '1']])],
+                [n4, new Map([['a', '7'], ['x', '1']])],
+                [inputBuilder.exitId, new Map([['a', '7'], ['x', '1'], ['c', '9'], ['result', '-7']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '7'], ['x', '1']])],
+                [n2, new Map([['a', '7'], ['x', '1']])],
+                [n3, new Map([['a', '7'], ['x', '1']])],
+                [n4, new Map([['a', '7'], ['x', '1'], ['c', '9'], ['result', '-7']])],
+                [inputBuilder.exitId, new Map([['a', '7'], ['x', '1'], ['c', '9'], ['result', '-7']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
     })
+
+    // 2
+    describe('multiple branches', () => {
+        it('three_branches: variable assigned the same constant in all arms so the join is that constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // b = 3
+            // if y < 0 goto LABEL1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('b', u.c(3))]});
+
+            // basic block 2:
+            // LABEL1: a = 5
+            // goto LABEL4
+            const n2 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5))]});
+
+            // basic block 3:
+            // LABEL1B: if y > 0 goto LABEL2
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // LABEL2: a = 5
+            // goto LABEL4
+            const n4 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5))]});
+
+            // basic block 5:
+            // LABEL3: a = 5
+            // goto LABEL4
+            const n5 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5))]});
+
+            // basic block 6:
+            // LABEL4: c = a + b
+            // result = - a
+            const n6 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(3)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2); // y < 0 -> LABEL1
+            inputBuilder.addEdges(n1, n3); // else -> LABEL1B
+            inputBuilder.addEdges(n3, n4); // y > 0 -> LABEL2
+            inputBuilder.addEdges(n3, n5); // else -> LABEL3
+            inputBuilder.addEdges(n2, n6); // -> LABEL4
+            inputBuilder.addEdges(n4, n6); // -> LABEL4
+            inputBuilder.addEdges(n5, n6); // -> LABEL4
+            inputBuilder.addEdges(n6, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['b', '3']])],
+                [n3, new Map([['b', '3']])],
+                [n4, new Map([['b', '3']])],
+                [n5, new Map([['b', '3']])],
+                [n6, new Map([['a', '5'], ['b', '3']])],
+                [inputBuilder.exitId, new Map([['a', '5'], ['b', '3'], ['c', '8'], ['result', '-5']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['b', '3']])],
+                [n2, new Map([['a', '5'], ['b', '3']])],
+                [n3, new Map([['b', '3']])],
+                [n4, new Map([['a', '5'], ['b', '3']])],
+                [n5, new Map([['a', '5'], ['b', '3']])],
+                [n6, new Map([['a', '5'], ['b', '3'], ['c', '8'], ['result', '-5']])],
+                [inputBuilder.exitId, new Map([['a', '5'], ['b', '3'], ['c', '8'], ['result', '-5']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('three_branches: variable assigned two different constants in two arms and untouched in the third so the join becomes NAC', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // x = 0
+            // if x > 0 goto LABEL1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // LABEL1: a = 5
+            // goto LABEL4
+            const n2 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5))]});
+
+            // basic block 3:
+            // LABEL1B: if x < 0 goto LABEL2
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // LABEL2: a = 7
+            // goto LABEL4
+            const n4 = inputBuilder.addNode({definitions: [d.copy('a', u.c(7))]});
+
+            // basic block 5:
+            // LABEL3: goto LABEL4
+            const n5 = inputBuilder.addNode({definitions: []});
+
+            // basic block 6:
+            // LABEL4: c = a + 1
+            // result = - a
+            const n6 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2); // to LABEL1
+            inputBuilder.addEdges(n1, n3); // to LABEL1B
+            inputBuilder.addEdges(n3, n4); // to LABEL2
+            inputBuilder.addEdges(n3, n5); // to LABEL3
+            inputBuilder.addEdges(n2, n6); // to LABEL4
+            inputBuilder.addEdges(n4, n6); // to LABEL4
+            inputBuilder.addEdges(n5, n6); // to LABEL4
+            inputBuilder.addEdges(n6, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['x', '0']])],
+                [n3, new Map([['x', '0']])],
+                [n4, new Map([['x', '0']])],
+                [n5, new Map([['x', '0']])],
+                [n6, new Map([['x', '0'], ['a', 'NAC']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['a', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['x', '0']])],
+                [n2, new Map([['x', '0'], ['a', '5']])],
+                [n3, new Map([['x', '0']])],
+                [n4, new Map([['x', '0'], ['a', '7']])],
+                [n5, new Map([['x', '0']])],
+                [n6, new Map([['x', '0'], ['a', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['a', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('three_branches: variable constant before split and only one arm redefines to a different constant so the join is NAC', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 4
+            // x = 0
+            // if x > 0 goto LABEL1
+            // goto LABEL1B
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(4)), d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // LABEL1: goto LABEL4
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // LABEL1B: if x < 0 goto LABEL2
+            // goto LABEL3
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // LABEL2: a = 9
+            // goto LABEL4
+            const n4 = inputBuilder.addNode({definitions: [d.copy('a', u.c(9))]});
+
+            // basic block 5:
+            // LABEL3: goto LABEL4
+            const n5 = inputBuilder.addNode({definitions: []});
+
+            // basic block 6:
+            // LABEL4: c = a + 1
+            // result = - a
+            const n6 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2); // -> LABEL1
+            inputBuilder.addEdges(n1, n3); // -> LABEL1B
+            inputBuilder.addEdges(n3, n4); // -> LABEL2
+            inputBuilder.addEdges(n3, n5); // -> LABEL3
+            inputBuilder.addEdges(n2, n6); // -> LABEL4
+            inputBuilder.addEdges(n4, n6); // -> LABEL4
+            inputBuilder.addEdges(n5, n6); // -> LABEL4
+            inputBuilder.addEdges(n6, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '4'], ['x', '0']])],
+                [n3, new Map([['a', '4'], ['x', '0']])],
+                [n4, new Map([['a', '4'], ['x', '0']])],
+                [n5, new Map([['a', '4'], ['x', '0']])],
+                [n6, new Map([['a', 'NAC'], ['x', '0']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '4'], ['x', '0']])],
+                [n2, new Map([['a', '4'], ['x', '0']])],
+                [n3, new Map([['a', '4'], ['x', '0']])],
+                [n4, new Map([['a', '9'], ['x', '0']])],
+                [n5, new Map([['a', '4'], ['x', '0']])],
+                [n6, new Map([['a', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('three_branches: same folded expression in each arm, join keeps that constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // x = 0
+            // if x > 0 goto LABEL1
+            // goto LABEL1B
+            const n1 = inputBuilder.addNode({definitions: [d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // LABEL1: a = 2 + 3
+            // goto LABEL4
+            const n2 = inputBuilder.addNode({definitions: [d.binary('a', '+', u.c(2), u.c(3))]});
+
+            // basic block 3:
+            // LABEL1B: if x < 0 goto LABEL2
+            // goto LABEL3
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // LABEL2: a = 10 - 5
+            // goto LABEL4
+            const n4 = inputBuilder.addNode({definitions: [d.binary('a', '-', u.c(10), u.c(5))]});
+
+            // basic block 5:
+            // LABEL3: a = 1 * 5
+            // goto LABEL4
+            const n5 = inputBuilder.addNode({definitions: [d.binary('a', '*', u.c(1), u.c(5))]});
+
+            // basic block 6:
+            // LABEL4: c = a + 1
+            // result = - a
+            const n6 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n1, n3);
+            inputBuilder.addEdges(n3, n4);
+            inputBuilder.addEdges(n3, n5);
+            inputBuilder.addEdges(n2, n6);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n6);
+            inputBuilder.addEdges(n6, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['x', '0']])],
+                [n3, new Map([['x', '0']])],
+                [n4, new Map([['x', '0']])],
+                [n5, new Map([['x', '0']])],
+                [n6, new Map([['x', '0'], ['a', '5']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['a', '5'], ['c', '6'], ['result', '-5']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['x', '0']])],
+                [n2, new Map([['x', '0'], ['a', '5']])],
+                [n3, new Map([['x', '0']])],
+                [n4, new Map([['x', '0'], ['a', '5']])],
+                [n5, new Map([['x', '0'], ['a', '5']])],
+                [n6, new Map([['x', '0'], ['a', '5'], ['c', '6'], ['result', '-5']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['a', '5'], ['c', '6'], ['result', '-5']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
+
+
+    });
+
+    // 3
+    describe('simple loop', () => {
+        it('single_loop: variable initialized to a constant and never modified in the loop so it remains constant throughout and after the loop', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 5
+            // i = 0
+            // goto L1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5)), d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L1: if i < 3 goto L2
+            // goto L3
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L2: t = a + i
+            // i = i + 1
+            // goto L1
+            const n3 = inputBuilder.addNode({definitions: [d.binary('t', '+', u.v('a'), u.v('i')), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 4:
+            // L3: c = a + 2
+            // result = - a
+            const n4 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(2)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n2, n4);
+            inputBuilder.addEdges(n3, n2);
+            inputBuilder.addEdges(n4, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC'], ['c', '7'], ['result', '-5']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '5'], ['i', '0']])],
+                [n2, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC'], ['c', '7'], ['result', '-5']])],
+                [inputBuilder.exitId, new Map([['a', '5'], ['i', 'NAC'], ['t', 'NAC'], ['c', '7'], ['result', '-5']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('single_loop: variable initialized to a constant but incremented inside the loop so it becomes NAC at the header fixed point', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 5
+            // i = 0
+            // goto L1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5)), d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L1: if i < 3 goto L2
+            // goto L3
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L2: a = a + 1
+            // i = i + 1
+            // goto L1
+            const n3 = inputBuilder.addNode({definitions: [d.binary('a', '+', u.v('a'), u.c(1)), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 4:
+            // L3: c = a + 2
+            // result = - a
+            const n4 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(2)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n2, n4);
+            inputBuilder.addEdges(n3, n2);
+            inputBuilder.addEdges(n4, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', 'NAC'], ['i', 'NAC']])],
+                [n3, new Map([['a', 'NAC'], ['i', 'NAC']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '5'], ['i', '0']])],
+                [n2, new Map([['a', 'NAC'], ['i', 'NAC']])],
+                [n3, new Map([['a', 'NAC'], ['i', 'NAC']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('single_loop: loop-invariant constant computed inside loop body stabilizes as constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // i = 0
+            // goto L1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L1: if i < 3 goto L2
+            // goto L3
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L2: k = 2 + 3
+            // i = i + 1
+            // goto L1
+            const n3 = inputBuilder.addNode({definitions: [d.binary('k', '+', u.c(2), u.c(3)), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 4:
+            // L3: c = k + 7
+            // result = - k
+            const n4 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('k'), u.c(7)), d.unary('result', '-', u.v('k'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n2, n4);
+            inputBuilder.addEdges(n3, n2);
+            inputBuilder.addEdges(n4, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['i', 'NAC'], ['k', '5']])],
+                [n3, new Map([['i', 'NAC'], ['k', '5']])],
+                [n4, new Map([['i', 'NAC'], ['k', '5']])],
+                [inputBuilder.exitId, new Map([['i', 'NAC'], ['k', '5'], ['c', '12'], ['result', '-5']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['i', '0']])],
+                [n2, new Map([['i', 'NAC'], ['k', '5']])],
+                [n3, new Map([['i', 'NAC'], ['k', '5']])],
+                [n4, new Map([['i', 'NAC'], ['k', '5'], ['c', '12'], ['result', '-5']])],
+                [inputBuilder.exitId, new Map([['i', 'NAC'], ['k', '5'], ['c', '12'], ['result', '-5']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
+
+    });
+
+
+    // 4
+    describe('loop in loop', () => {
+        it('loop_within_loop: variable constant before outer loop and only read inside both loops so it stays constant everywhere', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 7
+            // i = 0
+            // goto L_OUTER
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(7)), d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L_OUTER: if i < 2 goto L_INNER_ENTRY
+            // goto L_AFTER_OUTER
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L_INNER_ENTRY: j = 0
+            // goto L_INNER_HDR
+            const n3 = inputBuilder.addNode({definitions: [d.copy('j', u.c(0))]});
+
+            // basic block 4:
+            // L_INNER_HDR: if j < 3 goto L_INNER_BODY
+            // goto L_INNER_EXIT
+            const n4 = inputBuilder.addNode({definitions: []});
+
+            // basic block 5:
+            // L_INNER_BODY: t = a + j
+            // j = j + 1
+            // goto L_INNER_HDR
+            const n5 = inputBuilder.addNode({definitions: [d.binary('t', '+', u.v('a'), u.v('j')), d.binary('j', '+', u.v('j'), u.c(1))]});
+
+            // basic block 6:
+            // L_INNER_EXIT: i = i + 1
+            // goto L_OUTER
+            const n6 = inputBuilder.addNode({definitions: [d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 7:
+            // L_AFTER_OUTER: c = a + 5
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(5)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n2, n7);
+            inputBuilder.addEdges(n3, n4);
+            inputBuilder.addEdges(n4, n5);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n4);
+            inputBuilder.addEdges(n6, n2);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC'], ['c', '12'], ['result', '-7']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '7'], ['i', '0']])],
+                [n2, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', '7'], ['i', 'NAC'], ['j', '0'], ['t', 'NAC']])],
+                [n4, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC'], ['c', '12'], ['result', '-7']])],
+                [inputBuilder.exitId, new Map([['a', '7'], ['i', 'NAC'], ['j', 'NAC'], ['t', 'NAC'], ['c', '12'], ['result', '-7']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('loop_within_loop: variable constant before outer loop but redefined in the inner loop body, making it NAC at the outer loop header after fixpoint', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 7
+            // i = 0
+            // goto L_OUTER
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(7)), d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L_OUTER: if i < 2 goto L_INNER_ENTRY
+            // goto L_AFTER_OUTER
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L_INNER_ENTRY: j = 0
+            // goto L_INNER_HDR
+            const n3 = inputBuilder.addNode({definitions: [d.copy('j', u.c(0))]});
+
+            // basic block 4:
+            // L_INNER_HDR: if j < 3 goto L_INNER_BODY
+            // goto L_INNER_EXIT
+            const n4 = inputBuilder.addNode({definitions: []});
+
+            // basic block 5:
+            // L_INNER_BODY: a = a + j
+            // j = j + 1
+            // goto L_INNER_HDR
+            const n5 = inputBuilder.addNode({definitions: [d.binary('a', '+', u.v('a'), u.v('j')), d.binary('j', '+', u.v('j'), u.c(1))]});
+
+            // basic block 6:
+            // L_INNER_EXIT: i = i + 1
+            // goto L_OUTER
+            const n6 = inputBuilder.addNode({definitions: [d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 7:
+            // L_AFTER_OUTER: c = a + 5
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(5)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n2, n7);
+            inputBuilder.addEdges(n3, n4);
+            inputBuilder.addEdges(n4, n5);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n4);
+            inputBuilder.addEdges(n6, n2);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n3, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n5, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '7'], ['i', '0']])],
+                [n2, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n3, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', '0']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n5, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['j', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('loop_within_loop: inner variable constant from constants inside inner loop; constant within inner iterations but does not escape if outer redefines it', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // i = 0
+            // goto L_OUTER
+            const n1 = inputBuilder.addNode({definitions: [d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L_OUTER: if i < 2 goto L_INNER_ENTRY
+            // goto L_AFTER_OUTER
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L_INNER_ENTRY: k = 2 + 3
+            // j = 0
+            // goto L_INNER_HDR
+            const n3 = inputBuilder.addNode({definitions: [d.binary('k', '+', u.c(2), u.c(3)), d.copy('j', u.c(0))]});
+
+            // basic block 4:
+            // L_INNER_HDR: if j < 3 goto L_INNER_BODY
+            // goto L_INNER_EXIT
+            const n4 = inputBuilder.addNode({definitions: []});
+
+            // basic block 5:
+            // L_INNER_BODY: t = k + j
+            // j = j + 1
+            // goto L_INNER_HDR
+            const n5 = inputBuilder.addNode({definitions: [d.binary('t', '+', u.v('k'), u.v('j')), d.binary('j', '+', u.v('j'), u.c(1))]});
+
+            // basic block 6:
+            // L_INNER_EXIT: k = k + i
+            // i = i + 1
+            // goto L_OUTER
+            const n6 = inputBuilder.addNode({definitions: [d.binary('k', '+', u.v('k'), u.v('i')), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 7:
+            // L_AFTER_OUTER: c = k + 2
+            // result = - k
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('k'), u.c(2)), d.unary('result', '-', u.v('k'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n2, n7);
+            inputBuilder.addEdges(n3, n4);
+            inputBuilder.addEdges(n4, n5);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n4);
+            inputBuilder.addEdges(n6, n2);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['i', 'NAC'], ['k', '5'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['i', 'NAC'], ['k', '5'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['i', 'NAC'], ['k', '5'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [inputBuilder.exitId, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['i', '0']])],
+                [n2, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['i', 'NAC'], ['k', '5'], ['j', '0'], ['t', 'NAC']])],
+                [n4, new Map([['i', 'NAC'], ['k', '5'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['i', 'NAC'], ['k', '5'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['i', 'NAC'], ['k', 'NAC'], ['j', 'NAC'], ['t', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
+
+    });
+
+    // 5
+    describe('branches in a loop', () => {
+        it('two_branches_in_loop: variable constant before loop, one branch reassigns different constant and the other leaves it, header converges to NAC', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 4
+            // i = 0
+            // goto L1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(4)), d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L1: if i < 3 goto L2
+            // goto L4
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L2: t = i % 2
+            // if t > 0 goto L3
+            // goto L5
+            const n3 = inputBuilder.addNode({definitions: [d.binary('t', '%', u.v('i'), u.c(2))]});
+
+            // basic block 4:
+            // L3: a = 9
+            // goto L6
+            const n4 = inputBuilder.addNode({definitions: [d.copy('a', u.c(9))]});
+
+            // basic block 5:
+            // L5: goto L6
+            const n5 = inputBuilder.addNode({definitions: []});
+
+            // basic block 6:
+            // L6: i = i + 1
+            // goto L1
+            const n6 = inputBuilder.addNode({definitions: [d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 7:
+            // L4: c = a + 1
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3); // i < 3 -> L2
+            inputBuilder.addEdges(n2, n7); // else -> L4
+            inputBuilder.addEdges(n3, n4); // t > 0 -> L3
+            inputBuilder.addEdges(n3, n5); // else -> L5
+            inputBuilder.addEdges(n4, n6); // -> L6
+            inputBuilder.addEdges(n5, n6); // -> L6
+            inputBuilder.addEdges(n6, n2); // back to L1
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '4'], ['i', '0']])],
+                [n2, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['t', 'NAC'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('two_branches_in_loop: both branches assign the same constant each iteration so the loop header stabilizes to that constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 9
+            // i = 0
+            // goto L1
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(9)), d.copy('i', u.c(0))]});
+
+            // basic block 2:
+            // L1: if i < 3 goto L2
+            // goto L4
+            const n2 = inputBuilder.addNode({definitions: []});
+
+            // basic block 3:
+            // L2: t = i % 2
+            // if t > 0 goto L3
+            // goto L5
+            const n3 = inputBuilder.addNode({definitions: [d.binary('t', '%', u.v('i'), u.c(2))]});
+
+            // basic block 4:
+            // L3: a = 9
+            // goto L6
+            const n4 = inputBuilder.addNode({definitions: [d.copy('a', u.c(9))]});
+
+            // basic block 5:
+            // L5: a = 9
+            // goto L6
+            const n5 = inputBuilder.addNode({definitions: [d.copy('a', u.c(9))]});
+
+            // basic block 6:
+            // L6: i = i + 1
+            // goto L1
+            const n6 = inputBuilder.addNode({definitions: [d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 7:
+            // L4: c = a + 1
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n2, n7);
+            inputBuilder.addEdges(n3, n4);
+            inputBuilder.addEdges(n3, n5);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n6);
+            inputBuilder.addEdges(n6, n2);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC'], ['c', '10'], ['result', '-9']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '9'], ['i', '0']])],
+                [n2, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n3, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n4, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC'], ['c', '10'], ['result', '-9']])],
+                [inputBuilder.exitId, new Map([['a', '9'], ['i', 'NAC'], ['t', 'NAC'], ['c', '10'], ['result', '-9']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
+
+
+    });
+
+    // 6
+    describe('loops with branches', () => {
+        it('loop_in_branch: variable constant before split and redefined to a different constant inside the looped branch, making the join NAC', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 4
+            // x = 0
+            // if x > 0 goto L_LOOP_ENTRY
+            // goto L_ELSE
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(4)), d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // L_LOOP_ENTRY: i = 0
+            // goto L_HDR
+            const n2 = inputBuilder.addNode({definitions: [d.copy('i', u.c(0))]});
+
+            // basic block 3:
+            // L_ELSE: goto L_JOIN
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // L_HDR: if i < 3 goto L_BODY
+            // goto L_EXIT
+            const n4 = inputBuilder.addNode({definitions: []});
+
+            // basic block 5:
+            // L_BODY: a = 9
+            // i = i + 1
+            // goto L_HDR
+            const n5 = inputBuilder.addNode({definitions: [d.copy('a', u.c(9)), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 6:
+            // L_EXIT: goto L_JOIN
+            const n6 = inputBuilder.addNode({definitions: []});
+
+            // basic block 7:
+            // L_JOIN: c = a + 1
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n1, n3);
+            inputBuilder.addEdges(n2, n4);
+            inputBuilder.addEdges(n4, n5);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n4);
+            inputBuilder.addEdges(n3, n7);
+            inputBuilder.addEdges(n6, n7);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '4'], ['x', '0']])],
+                [n3, new Map([['a', '4'], ['x', '0']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n5, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '4'], ['x', '0']])],
+                [n2, new Map([['a', '4'], ['x', '0'], ['i', '0']])],
+                [n3, new Map([['a', '4'], ['x', '0']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n5, new Map([['a', '9'], ['i', 'NAC'], ['x', '0']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('loop_in_branch: variable constant before split and untouched in both paths so the join preserves the constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 7
+            // x = 0
+            // if x > 0 goto L_LOOP_ENTRY
+            // goto L_ELSE
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(7)), d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // L_LOOP_ENTRY: i = 0
+            // goto L_HDR
+            const n2 = inputBuilder.addNode({definitions: [d.copy('i', u.c(0))]});
+
+            // basic block 3:
+            // L_ELSE: goto L_JOIN
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // L_HDR: if i < 3 goto L_BODY
+            // goto L_EXIT
+            const n4 = inputBuilder.addNode({definitions: []});
+
+            // basic block 5:
+            // L_BODY: t = a + i
+            // i = i + 1
+            // goto L_HDR
+            const n5 = inputBuilder.addNode({definitions: [d.binary('t', '+', u.v('a'), u.v('i')), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 6:
+            // L_EXIT: goto L_JOIN
+            const n6 = inputBuilder.addNode({definitions: []});
+
+            // basic block 7:
+            // L_JOIN: c = a + 1
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n1, n3);
+            inputBuilder.addEdges(n2, n4);
+            inputBuilder.addEdges(n4, n5);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n4);
+            inputBuilder.addEdges(n3, n7);
+            inputBuilder.addEdges(n6, n7);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '7'], ['x', '0']])],
+                [n3, new Map([['a', '7'], ['x', '0']])],
+                [n4, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC'], ['c', '8'], ['result', '-7']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '7'], ['x', '0']])],
+                [n2, new Map([['a', '7'], ['x', '0'], ['i', '0']])],
+                [n3, new Map([['a', '7'], ['x', '0']])],
+                [n4, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n5, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n6, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC']])],
+                [n7, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC'], ['c', '8'], ['result', '-7']])],
+                [inputBuilder.exitId, new Map([['a', '7'], ['x', '0'], ['i', 'NAC'], ['t', 'NAC'], ['c', '8'], ['result', '-7']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('loop_in_branch: looped branch assigns the same constant and non-loop branch assigns the same constant; join preserves that constant', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // x = 0
+            // if x > 0 goto L_LOOP_ENTRY
+            // goto L_ELSE
+            const n1 = inputBuilder.addNode({definitions: [d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // L_LOOP_ENTRY: i = 0
+            // goto L_HDR
+            const n2 = inputBuilder.addNode({definitions: [d.copy('i', u.c(0))]});
+
+            // basic block 3:
+            // L_HDR: if i < 2 goto L_BODY
+            // goto L_EXIT
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // L_BODY: a = 5
+            // i = i + 1
+            // goto L_HDR
+            const n4 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5)), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 5:
+            // L_EXIT: a = 5
+            // goto L_JOIN
+            const n5 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5))]});
+
+            // basic block 6:
+            // L_ELSE: a = 5
+            // goto L_JOIN
+            const n6 = inputBuilder.addNode({definitions: [d.copy('a', u.c(5))]});
+
+            // basic block 7:
+            // L_JOIN: c = a + 1
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(1)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n1, n6);
+            inputBuilder.addEdges(n2, n3);
+            inputBuilder.addEdges(n3, n4);
+            inputBuilder.addEdges(n3, n5);
+            inputBuilder.addEdges(n4, n3);
+            inputBuilder.addEdges(n5, n7);
+            inputBuilder.addEdges(n6, n7);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['x', '0']])],
+                [n3, new Map([['x', '0'], ['i', 'NAC'], ['a', '5']])],
+                [n4, new Map([['x', '0'], ['i', 'NAC'], ['a', '5']])],
+                [n5, new Map([['x', '0'], ['i', 'NAC'], ['a', '5']])],
+                [n6, new Map([['x', '0']])],
+                [n7, new Map([['x', '0'], ['i', 'NAC'], ['a', '5']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['i', 'NAC'], ['a', '5'], ['c', '6'], ['result', '-5']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['x', '0']])],
+                [n2, new Map([['x', '0'], ['i', '0']])],
+                [n3, new Map([['x', '0'], ['i', 'NAC'], ['a', '5']])],
+                [n4, new Map([['x', '0'], ['i', 'NAC'], ['a', '5']])],
+                [n5, new Map([['x', '0'], ['i', 'NAC'], ['a', '5']])],
+                [n6, new Map([['x', '0'], ['a', '5']])],
+                [n7, new Map([['x', '0'], ['i', 'NAC'], ['a', '5'], ['c', '6'], ['result', '-5']])],
+                [inputBuilder.exitId, new Map([['x', '0'], ['i', 'NAC'], ['a', '5'], ['c', '6'], ['result', '-5']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+        it('loop_in_branch: looped branch makes the variable non-constant while the other keeps it constant, so the join is NAC', () => {
+            const inputBuilder = new ConstantPropagationInputBuilder();
+
+            // basic block 1:
+            // a = 4
+            // x = 0
+            // if x > 0 goto L_LOOP_ENTRY
+            // goto L_ELSE
+            const n1 = inputBuilder.addNode({definitions: [d.copy('a', u.c(4)), d.copy('x', u.c(0))]});
+
+            // basic block 2:
+            // L_LOOP_ENTRY: i = 0
+            // goto L_HDR
+            const n2 = inputBuilder.addNode({definitions: [d.copy('i', u.c(0))]});
+
+            // basic block 3:
+            // L_ELSE: goto L_JOIN
+            const n3 = inputBuilder.addNode({definitions: []});
+
+            // basic block 4:
+            // L_HDR: if i < 3 goto L_BODY
+            // goto L_EXIT
+            const n4 = inputBuilder.addNode({definitions: []});
+
+            // basic block 5:
+            // L_BODY: a = a + 1
+            // i = i + 1
+            // goto L_HDR
+            const n5 = inputBuilder.addNode({definitions: [d.binary('a', '+', u.v('a'), u.c(1)), d.binary('i', '+', u.v('i'), u.c(1))]});
+
+            // basic block 6:
+            // L_EXIT: goto L_JOIN
+            const n6 = inputBuilder.addNode({definitions: []});
+
+            // basic block 7:
+            // L_JOIN: c = a + 2
+            // result = - a
+            const n7 = inputBuilder.addNode({definitions: [d.binary('c', '+', u.v('a'), u.c(2)), d.unary('result', '-', u.v('a'))]});
+
+            inputBuilder.addEdges(inputBuilder.entryId, n1);
+            inputBuilder.addEdges(n1, n2);
+            inputBuilder.addEdges(n1, n3);
+            inputBuilder.addEdges(n2, n4);
+            inputBuilder.addEdges(n4, n5);
+            inputBuilder.addEdges(n4, n6);
+            inputBuilder.addEdges(n5, n4);
+            inputBuilder.addEdges(n3, n7);
+            inputBuilder.addEdges(n6, n7);
+            inputBuilder.addEdges(n7, inputBuilder.exitId);
+
+            const algoInput = inputBuilder.build();
+
+            const finalInMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([])],
+                [n2, new Map([['a', '4'], ['x', '0']])],
+                [n3, new Map([['a', '4'], ['x', '0']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n5, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            const finalOutMaps = new Map<number, Map<string, string>>([
+                [inputBuilder.entryId, new Map([])],
+                [n1, new Map([['a', '4'], ['x', '0']])],
+                [n2, new Map([['a', '4'], ['x', '0'], ['i', '0']])],
+                [n3, new Map([['a', '4'], ['x', '0']])],
+                [n4, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n5, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n6, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0']])],
+                [n7, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+                [inputBuilder.exitId, new Map([['a', 'NAC'], ['i', 'NAC'], ['x', '0'], ['c', 'NAC'], ['result', 'NAC']])],
+            ]);
+
+            expectInEquals(algoInput, finalInMaps);
+            expectOutEquals(algoInput, finalOutMaps);
+        });
+
+    });
 });
 
 describe('extractDefinitions', () => {
