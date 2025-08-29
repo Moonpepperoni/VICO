@@ -61,7 +61,7 @@ export class BasicBlockControlFlowGraph implements ControlFlowGraph {
     }
 
     get nodeIds(): Array<number> {
-        return [this.entryId, this.exitId, ...[...this.basicBlocks.values()].map(b => b.blockLeader)];
+        return [this.entryId, ...[...this.basicBlocks.values()].map(b => b.blockLeader), this.exitId,];
     }
 
     get dataNodeIds(): Array<number> {
