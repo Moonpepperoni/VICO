@@ -30,10 +30,9 @@ export const AnalysisPage: React.FC<{
     }
 
 
-    const handleAlgorithmStart = (selector : FlowAlgorithmSelector, requested: boolean) => {
+    const handleAlgorithmStart = (selector : FlowAlgorithmSelector) => {
         setPreSelectedAlgorithm(null);
         setAlgorithm(selector);
-        console.log(requested);
     }
 
     // Function to handle file content saving and parsing

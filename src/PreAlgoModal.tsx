@@ -7,7 +7,7 @@ export interface PreAlgoModalProps {
     selectedAlgorithm: FlowAlgorithmSelector["kind"] | null;
     possibleVariables: Set<string>;
     handleClose: () => void;
-    handleStart: (selector: FlowAlgorithmSelector, practiceModeRequested: boolean) => void;
+    handleStart: (selector: FlowAlgorithmSelector) => void;
 }
 
 export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
@@ -17,7 +17,6 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
                                                               possibleVariables,
                                                           }) => {
     const [selectedVariables, setSelectedVariables] = useState<Set<string>>(new Set());
-    const [practiceMode, setPracticeMode] = useState<boolean>(false);
 
     const handleVariableToggle = (variable: string, checked: boolean) => {
         setSelectedVariables(prevState => {
@@ -39,23 +38,19 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
         }
     }
 
-    const handlePracticeClicked = (event: ChangeEvent<HTMLInputElement>) => {
-        setPracticeMode(event.target.checked);
-    }
-
     const onStart = () => {
         switch (selectedAlgorithm) {
             case 'liveness-basic-blocks':
-                handleStart({kind: 'liveness-basic-blocks', liveOut: selectedVariables}, practiceMode);
+                handleStart({kind: 'liveness-basic-blocks', liveOut: selectedVariables});
                 break;
             case 'liveness-single-instruction':
-                handleStart({kind: 'liveness-single-instruction', liveOut: selectedVariables}, practiceMode);
+                handleStart({kind: 'liveness-single-instruction', liveOut: selectedVariables});
                 break;
             case 'reaching-definitions-basic-blocks':
-                handleStart({kind: 'reaching-definitions-basic-blocks'}, practiceMode);
+                handleStart({kind: 'reaching-definitions-basic-blocks'});
                 break;
             case 'constant-propagation-basic-blocks':
-                handleStart({kind: 'constant-propagation-basic-blocks'}, practiceMode);
+                handleStart({kind: 'constant-propagation-basic-blocks'});
         }
 
     };
@@ -139,13 +134,6 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
                                 onChange={(e) => handleVariableToggle(variable, e.target.checked)}
                             />
                         })}
-                    </Form.Group>
-                    <Form.Group>
-                        <Form.Label>Übungsmodus einstellungen:</Form.Label>
-                        <Form.Check key='training' type="switch" label="Übungsmodus ein-/ausschalten"
-                                    defaultChecked={false} checked={practiceMode} onChange={handlePracticeClicked}/>
-                        <Form.Text>Der Übungsmodus hilft dabei das Verständnis zu festigen.</Form.Text>
-
                     </Form.Group>
                 </Form>
             }
