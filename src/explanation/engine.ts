@@ -19,7 +19,7 @@ export function explainConstantPropagation(yieldReason: YieldReason): Explanatio
         case "out-computed":
             return [{
                 kind: 'text',
-                content: 'Berechne mit dem Meet-Operator für jede Instruktion, die eine Variable definiert, basierend auf der In-Menge, den benutzten Variablen und den vorherigen Instruktionen des Blocks, den neuen Zustand.'
+                content: 'Berechne mit der Transferfunktion für jede Instruktion, die eine Variable definiert, basierend auf der In-Menge, den benutzten Variablen und den vorherigen Instruktionen des Blocks, den neuen Zustand.'
             },
                 {
                     kind: 'text',

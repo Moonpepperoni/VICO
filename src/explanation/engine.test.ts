@@ -32,7 +32,7 @@ describe('Explanation Functions', () => {
     it('should explain out-computation phase correctly', () => {
       const explanation = explainConstantPropagation('out-computed');
       expect(explanation).toHaveLength(2);
-      expect(explanation[0].content).toContain('Meet-Operator');
+      expect(explanation[0].content).toContain('Transferfunktion');
       expect(explanation[1].content).toContain('neue Out-Menge');
     });
 
