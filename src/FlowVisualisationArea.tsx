@@ -126,7 +126,7 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({
                             <p className="mb-0">Hier wird eine Erklärung angezeigt</p> :
                             serviceValue?.explanation.map(e => {
                                 if (e.kind === 'text') {
-                                    return <p data-cy="algo-step-explanation-line" className="mb-0">{e.content}</p>
+                                    return <p key={crypto.randomUUID()} data-cy="algo-step-explanation-line" className="mb-0">{e.content}</p>
                                 } else {
                                     return <MathRenderer key={crypto.randomUUID()} data-cy="algo-step-explanation-line" formula={e.content}/>
                                 }
