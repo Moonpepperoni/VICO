@@ -41,10 +41,10 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
     const onStart = () => {
         switch (selectedAlgorithm) {
             case 'liveness-basic-blocks':
-                handleStart({kind: 'liveness-basic-blocks', liveOut: selectedVariables});
+                handleStart({kind: 'liveness-basic-blocks', liveOut: new Set(selectedVariables)});
                 break;
             case 'liveness-single-instruction':
-                handleStart({kind: 'liveness-single-instruction', liveOut: selectedVariables});
+                handleStart({kind: 'liveness-single-instruction', liveOut: new Set(selectedVariables)});
                 break;
             case 'reaching-definitions-basic-blocks':
                 handleStart({kind: 'reaching-definitions-basic-blocks'});
@@ -52,8 +52,13 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
             case 'constant-propagation-basic-blocks':
                 handleStart({kind: 'constant-propagation-basic-blocks'});
         }
-
+        setSelectedVariables(new Set());
     };
+
+    const innerClose = () => {
+        setSelectedVariables(new Set());
+        handleClose();
+    }
 
     const algorithmName = (() => {
         if (selectedAlgorithm === null) {
@@ -140,7 +145,7 @@ export const PreAlgoModal: React.FC<PreAlgoModalProps> = ({
 
         </Modal.Body>
         <Modal.Footer>
-            <Button variant="secondary" onClick={handleClose}>
+            <Button variant="secondary" onClick={innerClose}>
                 Zurück
             </Button>
             <Button data-cy="pre-algo-modal-start-button" variant="success" onClick={onStart}>Starten</Button>
