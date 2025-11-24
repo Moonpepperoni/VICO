@@ -124,11 +124,11 @@ export const DisplayArea: React.FC<VisualizationAreaProps> = ({
                     <Card.Body data-cy="algo-step-explanation-body">
                         {serviceValue?.explanation === undefined ?
                             <p className="mb-0">Hier wird eine Erklärung angezeigt</p> :
-                            [...(serviceValue?.explanation.entries()?? [])].map(([i,e]) => {
+                            serviceValue?.explanation.map(e => {
                                 if (e.kind === 'text') {
                                     return <p data-cy="algo-step-explanation-line" className="mb-0">{e.content}</p>
                                 } else {
-                                    return <MathRenderer key={i} data-cy="algo-step-explanation-line" formula={e.content}/>
+                                    return <MathRenderer key={crypto.randomUUID()} data-cy="algo-step-explanation-line" formula={e.content}/>
                                 }
                             })}
                     </Card.Body>
